@@ -10,12 +10,12 @@ import {
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_apiKey,
-  authDomain: process.env.REACT_APP_authDomain,
-  projectId: process.env.REACT_APP_projectId,
-  storageBucket: process.env.REACT_APP_storageBucket,
-  messagingSenderId: process.env.REACT_APP_messagingSenderId,
-  appId: process.env.REACT_APP_appId,
+  apiKey: process.env.REACT_APP_API_KEY,           // ✅ 수정됨
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,   // ✅ 수정됨
+  projectId: process.env.REACT_APP_PROJECT_ID,     // ✅ 수정됨
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,  // ✅ 수정됨
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,  // ✅ 수정됨
+  appId: process.env.REACT_APP_APP_ID,             // ✅ 수정됨
 };
 
 const app = initializeApp(firebaseConfig);
