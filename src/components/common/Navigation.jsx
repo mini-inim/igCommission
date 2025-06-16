@@ -52,7 +52,7 @@ const Navigation = ({ user }) => {
               }`}
             >
               <Dice6 className="w-5 h-5" />
-              <span>도박</span>
+              <span>카지노</span>
             </button>
             {user?.email === 'admin@test.com' && (
               <button

@@ -154,7 +154,6 @@ const ShopPage = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation user={user} />
       
       {/* 메시지 알림 */}
       {message.text && (
