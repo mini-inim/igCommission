@@ -14,9 +14,9 @@ import {
 } from "firebase/firestore";
 import UsingItem from './content/UsingItem';
 
-const ShopPage = ({ user, setCurrentPage}) => {
-  const { items } = useItems(); // ItemContext에서 상품 목록 가져오기
-  const { users, updateUser, getUserById } = useUsers(); // UserContext 사용
+const ShopPage = ({ user }) => {
+  const { items } = useItems();
+  const { users, updateUser, getUserById } = useUsers();
   
   const [purchaseLoading, setPurchaseLoading] = useState({});
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -38,6 +38,8 @@ const ShopPage = ({ user, setCurrentPage}) => {
     setPurchaseLoading(prev => ({ ...prev, [item.id]: true }));
 
     try {
+      let updatedGold;
+      
       // 트랜잭션을 사용해서 동시성 문제 해결
       await runTransaction(db, async (transaction) => {
         // 1. 사용자 정보 조회
@@ -50,7 +52,6 @@ const ShopPage = ({ user, setCurrentPage}) => {
 
         const userData = userDoc.data();
         const currentGold = userData.gold || 0;
-
 
         // 2. 골드 부족 체크
         if (currentGold < item.price) {
@@ -65,6 +66,9 @@ const ShopPage = ({ user, setCurrentPage}) => {
         transaction.update(userRef, {
           gold: increment(-item.price)
         });
+
+        // 업데이트될 골드 값 계산 (UI 업데이트용)
+        updatedGold = currentGold - item.price;
 
         // 5. 인벤토리 업데이트
         if (inventoryDoc.exists()) {
@@ -87,13 +91,10 @@ const ShopPage = ({ user, setCurrentPage}) => {
         }
       });
 
+      // 트랜잭션 성공 후 UserContext 업데이트로 네비게이션 실시간 갱신
+      await updateUser(user.uid, { gold: updatedGold });
+
       showMessage(`${item.name}을(를) 구매했습니다!`, 'success');
-      
-      // 사용자 골드 정보 새로고침을 위해 UserContext 업데이트 트리거
-      // (실제로는 트랜잭션에서 이미 업데이트되었지만, UI 반영을 위해)
-      // setTimeout(() => {
-      //   window.location.reload(); // 임시방편 - 나중에 더 좋은 방법으로 변경 가능
-      // }, 1000);
       
     } catch (error) {
       console.error('구매 오류:', error);
@@ -105,7 +106,7 @@ const ShopPage = ({ user, setCurrentPage}) => {
 
   // 메시지 스타일
   const getMessageStyle = (type) => {
-    const baseStyle = "fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300";
+    const baseStyle = "fixed bottom-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300";
     switch (type) {
       case 'success':
         return `${baseStyle} bg-green-500 text-white`;
@@ -116,12 +117,12 @@ const ShopPage = ({ user, setCurrentPage}) => {
     }
   };
 
-  //현재 보유 금액
-  const userGold = getUserById(user.uid)?.gold;
+  // 현재 보유 금액
+  const userGold = getUserById(user?.uid)?.gold || 0;
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation user={user} setCurrentPage={setCurrentPage}/>
+      <Navigation user={user} />
       
       {/* 메시지 알림 */}
       {message.text && (
@@ -136,7 +137,7 @@ const ShopPage = ({ user, setCurrentPage}) => {
           <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
         </div>
 
-        {/* 상점 아이템 그리드 - ItemContext에서 가져온 items 사용 */}
+        {/* 상점 아이템 그리드 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
           {!items || items.length === 0 ? (
             <div className="col-span-full text-center py-12">
@@ -146,7 +147,7 @@ const ShopPage = ({ user, setCurrentPage}) => {
             </div>
           ) : (
             items
-              .filter(item => item && item.id) // undefined나 잘못된 item 필터링
+              .filter(item => item && item.id)
               .map((item) => (
                 <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-2 overflow-hidden">
                   <div className="h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
@@ -196,9 +197,6 @@ const ShopPage = ({ user, setCurrentPage}) => {
                         )}
                       </button>
                     </div>
-                    
-                    {/* 사용자 골드 정보 표시 */}
-                    
                   </div>
                 </div>
               ))
@@ -207,11 +205,8 @@ const ShopPage = ({ user, setCurrentPage}) => {
 
         {/* 사용자 정보 섹션 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          <UserItem user={user}/>
-
-          <UsingItem user={user}/>
-
+          <UserItem user={user} />
+          <UsingItem user={user} />
         </div>
       </div>
     </div>
