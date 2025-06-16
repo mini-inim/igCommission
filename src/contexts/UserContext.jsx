@@ -25,11 +25,13 @@ export const UserProvider = ({ children }) => {
         setLoading(true);
         // 이름 순으로 정렬해서 가져오기 (이름이 없으면 email 순)
         const snap = await getDocs(usersCol);
-        const data = snap.docs.map(doc => ({ 
-          id: doc.id, 
-          ...doc.data(),
-          gold: doc.data().gold || 0 // 기본값 설정
-        }));
+        const data = snap.docs
+          .map(doc => ({ 
+            id: doc.id, 
+            ...doc.data(),
+            gold: doc.data().gold || 0
+          }))
+          .filter(user => user.email !== 'watcher@crepe.com');
         
         // 클라이언트에서 정렬 (name이나 email 기준)
         data.sort((a, b) => {
