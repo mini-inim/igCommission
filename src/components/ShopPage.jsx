@@ -12,6 +12,7 @@ import {
   increment
 } from "firebase/firestore";
 import UsingItem from './content/UsingItem';
+import BattleStatus from './battle/BattleStatus';
 
 const ShopPage = ({ user }) => {
   const { items } = useItems();
@@ -162,78 +163,85 @@ const ShopPage = ({ user }) => {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">아이템 상점</h2>
-          <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
-        </div>
+      
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">아이템 상점</h2>
+            <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
+          </div>
 
-        {/* 상점 아이템 그리드 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
-          {!items || items.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <div className="text-gray-400 text-6xl mb-4">🛍️</div>
-              <p className="text-gray-500 text-lg">아직 등록된 상품이 없습니다.</p>
-              <p className="text-gray-400 text-sm mt-2">관리자가 상품을 등록하면 여기에 표시됩니다.</p>
-            </div>
-          ) : (
-            items
-              .filter(item => item && item.id)
-              .map((item) => (
-                <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-2 overflow-hidden">
-                  <div className="h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                    {item.image ? (
-                      item.image.startsWith('http') ? (
-                        <img src={item.image} alt={item.name || '상품 이미지'} className="w-full h-full object-cover" />
+          
+        <div className="space-y-12">
+          {/* 상점 아이템 그리드 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
+            {!items || items.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <div className="text-gray-400 text-6xl mb-4">🛍️</div>
+                <p className="text-gray-500 text-lg">아직 등록된 상품이 없습니다.</p>
+                <p className="text-gray-400 text-sm mt-2">관리자가 상품을 등록하면 여기에 표시됩니다.</p>
+              </div>
+            ) : (
+              items
+                .filter(item => item && item.id)
+                .map((item) => (
+                  <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-2 overflow-hidden">
+                    <div className="h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                      {item.image ? (
+                        item.image.startsWith('http') ? (
+                          <img src={item.image} alt={item.name || '상품 이미지'} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-6xl">{item.image}</span>
+                        )
                       ) : (
-                        <span className="text-6xl">{item.image}</span>
-                      )
-                    ) : (
-                      <span className="text-6xl">📦</span>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-bold text-lg text-gray-800 mb-2">{item.name || '상품명 없음'}</h3>
-                    {item.description && (
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-purple-600">
-                        {(item.price || 0).toLocaleString()} 
-                      </span>
-                        <button 
-                          onClick={() => handlePurchase(item)}
-                          disabled={purchaseLoading[item.id] || !canPurchaseItem(item).canPurchase}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                            purchaseLoading[item.id]
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : canPurchaseItem(item).canPurchase
-                              ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95'
-                              : 'bg-gray-400 cursor-not-allowed'
-                          } text-white text-sm`}
-                        >
-                          {purchaseLoading[item.id] ? (
-                            <div className="flex items-center">
-                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                              구매중...
-                            </div>
-                          ) : canPurchaseItem(item).canPurchase ? (
-                            '구매'
-                          ) : (
-                            '구매 불가'
-                          )}
-                        </button>
+                        <span className="text-6xl">📦</span>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-bold text-lg text-gray-800 mb-2">{item.name || '상품명 없음'}</h3>
+                      {item.description && (
+                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-purple-600">
+                          {(item.price || 0).toLocaleString()} 
+                        </span>
+                          <button 
+                            onClick={() => handlePurchase(item)}
+                            disabled={purchaseLoading[item.id] || !canPurchaseItem(item).canPurchase}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                              purchaseLoading[item.id]
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : canPurchaseItem(item).canPurchase
+                                ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95'
+                                : 'bg-gray-400 cursor-not-allowed'
+                            } text-white text-sm`}
+                          >
+                            {purchaseLoading[item.id] ? (
+                              <div className="flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                                구매중...
+                              </div>
+                            ) : canPurchaseItem(item).canPurchase ? (
+                              '구매'
+                            ) : (
+                              '구매 불가'
+                            )}
+                          </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-          )}
-        </div>
+                ))
+            )}
+          </div>
 
-        {/* 사용자 정보 섹션 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <UserItem user={user} />
-          <UsingItem user={user} />
+          <BattleStatus />
+
+          {/* 사용자 정보 섹션 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <UserItem user={user} />
+            <UsingItem user={user} />
+          </div>
+
         </div>
       </div>
     </div>
