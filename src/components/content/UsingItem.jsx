@@ -220,7 +220,7 @@ const UsingItem = ({ user }) => {
                     {actionType === 'use' && (
                       ` (부상: ${u.injuries || 0}${u.isEliminated ? ' - 탈락' : ''})`
                     )}
-                    {u.team && ` [${u.team}팀]`}
+                    {u.team && ` [${u.team}]`}
                   </option>
                 ))}
               </select>

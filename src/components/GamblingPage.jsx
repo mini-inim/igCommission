@@ -1,6 +1,6 @@
 // components/GamblingPage.jsx
 import React, { useState, useEffect } from 'react';
-import Navigation from './Navigation';
+import Navigation from './common/Navigation';
 import CoinFlip from './gamble/CoinFlip';
 import Roulette from './gamble/Roulette';
 import { useUsers } from '../contexts/UserContext';

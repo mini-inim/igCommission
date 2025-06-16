@@ -23,6 +23,8 @@ export const InventoryProvider = ({ children }) => {
 
   // 인벤토리 새로고침 함수
   const refreshInventory = async () => {
+    console.log('refreshInventory 호출됨, user:', user?.uid);
+    
     if (!user) {
       setInventory([]);
       return;
@@ -31,6 +33,8 @@ export const InventoryProvider = ({ children }) => {
     try {
       const inventoryRef = collection(db, 'users', user.uid, 'inventory');
       const inventorySnap = await getDocs(inventoryRef);
+      
+      console.log('Firebase 인벤토리 조회 결과:', inventorySnap.size, '개 문서');
       
       if (inventorySnap.empty) {
         setInventory([]);
@@ -50,6 +54,7 @@ export const InventoryProvider = ({ children }) => {
         };
       }).filter(item => item.quantity > 0);
       
+      console.log('새로운 인벤토리 데이터:', userItems);
       setInventory(userItems);
     } catch (error) {
       console.error('인벤토리 새로고침 실패:', error);
@@ -192,16 +197,21 @@ export const InventoryProvider = ({ children }) => {
 
     try {
       await runTransaction(db, async (transaction) => {
-        // 현재 사용자 인벤토리에서 아이템 차감
+        // 모든 읽기 작업을 먼저 실행
         const fromItemRef = doc(db, 'users', user.uid, 'inventory', itemId);
-        const fromItemDoc = await transaction.get(fromItemRef);
+        const toItemRef = doc(db, 'users', targetUserId, 'inventory', itemId);
         
+        const fromItemDoc = await transaction.get(fromItemRef);
+        const toItemDoc = await transaction.get(toItemRef);
+        
+        // 읽기 완료 후 검증
         if (!fromItemDoc.exists()) {
           throw new Error('아이템이 존재하지 않습니다.');
         }
         
         const currentQuantity = fromItemDoc.data().quantity || 0;
         
+        // 모든 쓰기 작업을 읽기 후에 실행
         if (currentQuantity <= 1) {
           transaction.delete(fromItemRef);
         } else {
@@ -211,9 +221,6 @@ export const InventoryProvider = ({ children }) => {
         }
 
         // 대상 사용자 인벤토리에 아이템 추가
-        const toItemRef = doc(db, 'users', targetUserId, 'inventory', itemId);
-        const toItemDoc = await transaction.get(toItemRef);
-        
         if (toItemDoc.exists()) {
           transaction.update(toItemRef, {
             quantity: increment(1),

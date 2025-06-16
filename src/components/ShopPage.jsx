@@ -1,6 +1,6 @@
 // components/ShopPage.jsx
 import React, { useState } from 'react';
-import Navigation from './Navigation';
+import Navigation from './common/Navigation';
 import UserItem from './content/UserItem';
 import { useItems } from '../contexts/ItemContext';
 import { useUsers } from '../contexts/UserContext';
@@ -12,15 +12,33 @@ import {
   increment
 } from "firebase/firestore";
 import UsingItem from './content/UsingItem';
-import BattleStatus from './battle/BattleStatus'
 
 const ShopPage = ({ user }) => {
   const { items } = useItems();
   const { updateUser, getUserById } = useUsers();
-  const { refreshInventory } = useInventory();
+  const { refreshInventory, inventory } = useInventory();
   
   const [purchaseLoading, setPurchaseLoading] = useState({});
   const [message, setMessage] = useState({ text: '', type: '' });
+
+  // 방어권 보유량 체크 함수
+  const getDefenseCount = () => {
+    const defenseItem = inventory.find(item => item.itemName === '방어권');
+    return defenseItem ? defenseItem.quantity : 0;
+  };
+
+  // 구매 가능 여부 체크 함수
+  const canPurchaseItem = (item) => {
+    if (!user) return { canPurchase: false, reason: '로그인 필요' };
+    if (userGold < (item.price || 0)) return { canPurchase: false, reason: '골드 부족' };
+    
+    // 방어권 구매 제한 체크
+    if (item.name === '방어권' && getDefenseCount() >= 10) {
+      return { canPurchase: false, reason: '방어권 최대 보유 (10개)' };
+    }
+    
+    return { canPurchase: true, reason: '구매' };
+  };
 
   // 메시지 표시 함수
   const showMessage = (text, type = 'info') => {
@@ -30,8 +48,16 @@ const ShopPage = ({ user }) => {
 
   // 아이템 구매 함수
   const handlePurchase = async (item) => {
-    if (!user) {
-      showMessage('로그인이 필요합니다.', 'error');
+    const purchaseCheck = canPurchaseItem(item);
+    
+    if (!purchaseCheck.canPurchase) {
+      if (purchaseCheck.reason === '방어권 최대 보유 (10개)') {
+        showMessage('방어권은 최대 10개까지만 보유할 수 있습니다.', 'error');
+      } else if (purchaseCheck.reason === '로그인 필요') {
+        showMessage('로그인이 필요합니다.', 'error');
+      } else if (purchaseCheck.reason === '골드 부족') {
+        showMessage('골드가 부족합니다.', 'error');
+      }
       return;
     }
 
@@ -143,10 +169,6 @@ const ShopPage = ({ user }) => {
           <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
         </div>
 
-          
-        {/* 배틀 현황 */}
-        <BattleStatus />
-
         {/* 상점 아이템 그리드 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
           {!items || items.length === 0 ? (
@@ -178,34 +200,30 @@ const ShopPage = ({ user }) => {
                     )}
                     <div className="flex items-center justify-between">
                       <span className="text-2xl font-bold text-purple-600">
-                        💰{(item.price || 0).toLocaleString()} 
+                        {(item.price || 0).toLocaleString()} 
                       </span>
-                      <button 
-                        onClick={() => handlePurchase(item)}
-                        disabled={purchaseLoading[item.id] || !user}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                          purchaseLoading[item.id]
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : !user
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : userGold >= (item.price || 0)
-                            ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95'
-                            : 'bg-red-400 cursor-not-allowed'
-                        } text-white text-sm`}
-                      >
-                        {purchaseLoading[item.id] ? (
-                          <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                            구매중...
-                          </div>
-                        ) : !user ? (
-                          '로그인 필요'
-                        ) : userGold >= (item.price || 0) ? (
-                          '구매'
-                        ) : (
-                          '골드 부족'
-                        )}
-                      </button>
+                        <button 
+                          onClick={() => handlePurchase(item)}
+                          disabled={purchaseLoading[item.id] || !canPurchaseItem(item).canPurchase}
+                          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                            purchaseLoading[item.id]
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : canPurchaseItem(item).canPurchase
+                              ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95'
+                              : 'bg-gray-400 cursor-not-allowed'
+                          } text-white text-sm`}
+                        >
+                          {purchaseLoading[item.id] ? (
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                              구매중...
+                            </div>
+                          ) : canPurchaseItem(item).canPurchase ? (
+                            '구매'
+                          ) : (
+                            '구매 불가'
+                          )}
+                        </button>
                     </div>
                   </div>
                 </div>

@@ -1,23 +1,18 @@
 // components/AdminPage.jsx
 import React from 'react';
-import Navigation from './Navigation';
-import AddItem from './admin/AddItem';
-import AddGold from './admin/AddGold';
+import Navigation from './common/Navigation';
+import ItemManagement from './admin/ItemManagement';
+import UserList from './admin/UserList';
 
-const AdminPage = ({ user, userStats, setCurrentPage, handleLogout }) => {
+const AdminPage = ({ user }) => {
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation user={user} userStats={userStats} setCurrentPage={setCurrentPage} handleLogout={handleLogout} />
+      <Navigation user={user} />
       <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">관리자 대시보드</h2>
-          <p className="text-gray-600">시스템 관리 및 모니터링</p>
-        </div>
-
-        <AddItem />
-
-        <AddGold />
-        
+        <div className="space-y-12">
+          <UserList />
+          <ItemManagement />
+        </div> 
       </div>
     </div>
   );

@@ -2,8 +2,8 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, Dice6, Shield, LogOut } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useUsers } from '../contexts/UserContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useUsers } from '../../contexts/UserContext';
 
 const Navigation = ({ user }) => {
   const { logout } = useAuth();
@@ -30,7 +30,7 @@ const Navigation = ({ user }) => {
     <nav className="bg-gray-900 border-b border-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
-          <h1 className="text-2xl font-bold text-white">커뮤니티 이름 들어갈 칸</h1>
+          <h1 className="text-3xl font-bold text-white">밀고톡</h1>
           <div className="flex space-x-6">
             <button
               onClick={() => navigate('/shop')}

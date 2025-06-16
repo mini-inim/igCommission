@@ -125,7 +125,7 @@ const AuthPage = () => {
           <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto mb-4 flex items-center justify-center">
             <User className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">게임 포털</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">밀고톡</h1>
           <p className="text-white/70">
             {isLogin ? '계정에 로그인하세요' : '새 계정을 만드세요'}
           </p>
@@ -138,7 +138,7 @@ const AuthPage = () => {
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="이름"
+                  placeholder="캐릭터 이름"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyPress={handleKeyPress}

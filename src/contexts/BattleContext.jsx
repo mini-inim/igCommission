@@ -144,7 +144,17 @@ export const BattleProvider = ({ children }) => {
         const currentQuantity = defenseItem.data().quantity || 0;
         
         await runTransaction(db, async (transaction) => {
-          if (currentQuantity <= 1) {
+          // 읽기 작업 먼저 수행
+          const itemDoc = await transaction.get(itemRef);
+          
+          if (!itemDoc.exists()) {
+            return; // 아이템이 없으면 그냥 반환
+          }
+          
+          const quantity = itemDoc.data().quantity || 0;
+          
+          // 쓰기 작업은 읽기 후에 수행
+          if (quantity <= 1) {
             transaction.delete(itemRef);
           } else {
             transaction.update(itemRef, {
