@@ -8,6 +8,8 @@ import { ItemProvider } from './contexts/ItemContext';
 import { UserProvider } from './contexts/UserContext';
 import { BattleProvider } from './contexts/BattleContext';
 import { InventoryProvider } from './contexts/InventoryContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { BattleLogProvider } from './contexts/BattleLogContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -18,7 +20,11 @@ root.render(
           <ItemProvider>
             <InventoryProvider>
               <BattleProvider>
-                <App />
+                <NotificationProvider>
+                  <BattleLogProvider>
+                    <App />
+                  </BattleLogProvider>
+                </NotificationProvider>
               </BattleProvider>
             </InventoryProvider>
           </ItemProvider>

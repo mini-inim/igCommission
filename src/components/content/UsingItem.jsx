@@ -5,11 +5,13 @@ import { useUsers } from '../../contexts/UserContext';
 import { useInventory } from '../../contexts/InventoryContext';
 import { executeItemEffect, ITEM_EFFECT_NAMES, ITEM_EFFECT_DESCRIPTIONS, ITEM_EFFECT_COLORS, ITEM_EFFECT_EMOJIS, ITEM_EFFECTS } from '../battle/itemEffect';
 import BattleStatus from "../battle/BattleStatus";
+import { useNotifications } from "../../contexts/NotificationContext";
 
 const UsingItem = ({ user }) => {
   const { updateInjuries, updateTeamInjuries, getBattleUserById, getActiveBattleUsers, getUsersByTeam, checkAndConsumeDefense } = useBattle();
   const { users } = useUsers();
   const { inventory, loading: inventoryLoading, consumeItem, transferItem } = useInventory();
+  const { createNotification } = useNotifications();
   const [selectedItem, setSelectedItem] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
   const [actionType, setActionType] = useState('use'); // 'use' 또는 'transfer'
@@ -58,10 +60,12 @@ const UsingItem = ({ user }) => {
     try {
       // 아이템 효과 실행
       const resultMessage = await executeItemEffect(
+        user.uid,
         itemData.itemEffect,
         targetUserId,
         null,
-        { updateInjuries, updateTeamInjuries, getBattleUserById, getUsersByTeam, checkAndConsumeDefense }
+        { updateInjuries, updateTeamInjuries, getBattleUserById, getUsersByTeam, checkAndConsumeDefense },
+        { createNotification }
       );
 
       // InventoryContext의 consumeItem 사용 (Firebase 트랜잭션 포함)

@@ -166,11 +166,11 @@ const ShopPage = ({ user }) => {
       
         <div className="max-w-6xl mx-auto p-6">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">아이템 상점</h2>
-            <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">아이템</h2>
+            <p className="text-gray-600"> 구매/사용/양도 내역이 업데이트 되지 않을 시 새로고침 부탁드립니다.</p>
           </div>
 
-          
+
         <div className="space-y-12">
           {/* 상점 아이템 그리드 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">

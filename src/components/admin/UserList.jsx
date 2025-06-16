@@ -1,14 +1,14 @@
 // components/admin/UserList.jsx
 import React, { useState } from "react";
+import { Search, User, Crown, Coins, Heart } from 'lucide-react';
 import { useUsers } from "../../contexts/UserContext";
 import { useBattle } from "../../contexts/BattleContext";
 import { useInventory } from "../../contexts/InventoryContext";
 
 const UserList = () => {
   const { users, updateUser, loading } = useUsers();
-  const { battleUsers } = useBattle();
+  const { battleUsers, teams, updateTeamMemberCounts } = useBattle();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTeams, setSelectedTeams] = useState({});
   const [updateLoading, setUpdateLoading] = useState({});
   const [message, setMessage] = useState({ text: '', type: '' });
   const [userInventories, setUserInventories] = useState({});
@@ -45,18 +45,18 @@ const UserInventoryDisplay = ({ userId, loadUserInventory, userInventories }) =>
       <label className="block text-sm font-semibold text-gray-700 mb-2">
         🎒 보유 아이템
       </label>
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-2xl border-2 border-purple-100 min-h-[120px]">
-        <div className="space-y-2 max-h-24 overflow-y-auto">
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[100px]">
+        <div className="space-y-2 max-h-20 overflow-y-auto">
           {items.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-2">보유 아이템 없음</p>
           ) : (
             items.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg shadow-sm">
-                <div className="flex items-center space-x-2">
-                  <span className="text-lg">{getItemEmoji(item.itemName)}</span>
-                  <span className="text-sm font-medium text-gray-700">{item.itemName}</span>
+              <div key={idx} className="flex items-center justify-between bg-white px-2 py-1 rounded text-xs">
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm">{getItemEmoji(item.itemName)}</span>
+                  <span className="font-medium text-gray-700">{item.itemName}</span>
                 </div>
-                <span className="text-sm font-bold text-purple-600">x{item.quantity}</span>
+                <span className="font-bold text-blue-600">x{item.quantity}</span>
               </div>
             ))
           )}
@@ -103,22 +103,21 @@ const UserInventoryDisplay = ({ userId, loadUserInventory, userInventories }) =>
   };
 
   // 팀 업데이트 함수
-  const handleTeamUpdate = async (userId, teamNumber) => {
+  const handleTeamUpdate = async (userId, teamName) => {
     try {
       setUpdateLoading(prev => ({ ...prev, [userId]: true }));
       
-      const teamName = teamNumber ? `${teamNumber}팀` : null;
-      await updateUser(userId, { team: teamName });
-      
-      // 로컬 상태 업데이트
-      setSelectedTeams(prev => ({ ...prev, [userId]: teamNumber }));
+      await updateUser(userId, { team: teamName || null });
       
       const user = users.find(u => u.id === userId);
-      if (teamNumber) {
-        showMessage(`${user?.displayName || '사용자'}를 ${teamNumber}팀으로 배정했습니다.`, 'success');
+      if (teamName) {
+        showMessage(`${user?.displayName || '사용자'}를 ${teamName}으로 배정했습니다.`, 'success');
       } else {
         showMessage(`${user?.displayName || '사용자'}의 팀 배정을 해제했습니다.`, 'success');
       }
+      
+      // 팀 멤버 수 업데이트
+      updateTeamMemberCounts();
       
     } catch (error) {
       console.error('팀 업데이트 실패:', error);
@@ -155,6 +154,34 @@ const UserInventoryDisplay = ({ userId, loadUserInventory, userInventories }) =>
     }
   };
 
+  // 팀 색상 가져오기
+  const getTeamColor = (teamName) => {
+    const team = teams.find(t => t.name === teamName);
+    return team?.color || '#6b7280';
+  };
+
+  // 팀 스타일 가져오기
+  const getTeamStyle = (teamName) => {
+    if (!teamName) return 'bg-gray-100 text-gray-600 border border-gray-200';
+    
+    const team = teams.find(t => t.name === teamName);
+    if (!team) return 'bg-gray-100 text-gray-600 border border-gray-200';
+    
+    // 색상에 따른 스타일 매핑
+    const colorMap = {
+      '#dc2626': 'bg-red-100 text-red-700 border border-red-200',
+      '#2563eb': 'bg-blue-100 text-blue-700 border border-blue-200', 
+      '#059669': 'bg-green-100 text-green-700 border border-green-200',
+      '#7c3aed': 'bg-purple-100 text-purple-700 border border-purple-200',
+      '#ea580c': 'bg-orange-100 text-orange-700 border border-orange-200',
+      '#db2777': 'bg-pink-100 text-pink-700 border border-pink-200',
+      '#0891b2': 'bg-cyan-100 text-cyan-700 border border-cyan-200',
+      '#ca8a04': 'bg-yellow-100 text-yellow-700 border border-yellow-200',
+    };
+    
+    return colorMap[team.color] || 'bg-gray-100 text-gray-600 border border-gray-200';
+  };
+
   const getMessageStyle = (type) => {
     const baseStyle = "fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300";
     switch (type) {
@@ -169,7 +196,7 @@ const UserInventoryDisplay = ({ userId, loadUserInventory, userInventories }) =>
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
         <div className="text-center text-gray-500">사용자 정보 로딩 중...</div>
       </div>
     );
@@ -184,208 +211,179 @@ const UserInventoryDisplay = ({ userId, loadUserInventory, userInventories }) =>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto">
-        {/* 사용자 관리 제목 + 검색창 한 줄 정렬 */}
-            <div className="flex justify-between items-center mb-3">
-            {/* 왼쪽 - 제목 */}
-            <div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-1">밀고톡 러너 관리</h2>
-            </div>
-
-            {/* 오른쪽 - 검색창 */}
+      {/* 통일된 스타일로 변경 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <User className="w-5 h-5" />
+              밀고톡 러너 관리
+            </h2>
             <div className="w-full max-w-md">
-                <div className="relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
-                    type="text"
-                    placeholder="사용자 이름으로 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-3 pl-12 bg-white border-2 border-gray-200 rounded-2xl shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-400 transition-all duration-200"
+                  type="text"
+                  placeholder="사용자 이름으로 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-                </div>
+              </div>
             </div>
+          </div>
         </div>
 
-
-        {/* 사용자 목록 */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-          <div className="max-h-[600px] overflow-y-auto">
-            {filteredUsers.length === 0 ? (
-              <div className="p-12 text-center">
-                <p className="text-gray-500 text-lg">
-                  {searchTerm ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {filteredUsers.map((user, index) => (
-                  <div 
-                    key={user.id} 
-                    className={`p-6 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 ${
-                      index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      {/* 왼쪽: 사용자 정보 */}
-                      <div className="flex-1 pr-6">
-                        <div className="flex items-center mb-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4 shadow-lg">
-                            {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-xl text-gray-800">
-                              {user.displayName || user.email}
-                            </h3>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                          </div>
-                        </div>
+        <div className="p-6">
+          {filteredUsers.length === 0 ? (
+            <div className="text-center py-12">
+              <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">
+                {searchTerm ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredUsers.map((user) => (
+                <div 
+                  key={user.id} 
+                  className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    {/* 사용자 기본 정보 */}
+                    <div className="flex items-center gap-4 flex-1">
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg"
+                        style={{ backgroundColor: getTeamColor(user.team) }}
+                      >
+                        {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-800">
+                          {user.displayName || user.email}
+                        </h3>
+                        <p className="text-sm text-gray-500">{user.email}</p>
                         
-                        <div className="flex items-center space-x-6 mb-4">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xl font-bold text-yellow-600">
-                              {(user.gold || 0).toLocaleString()}
-                            </span>
-                            <span className="text-gray-500">골드</span>
-                          </div>
+                        {/* 상태 표시 */}
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="flex items-center gap-1 text-sm">
+                            <Coins className="w-4 h-4 text-yellow-600" />
+                            <span className="font-bold text-yellow-600">{(user.gold || 0).toLocaleString()}</span>
+                          </span>
                           
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              user.team === '1팀' 
-                                ? 'bg-blue-100 text-blue-700 border-2 border-blue-200' 
-                                : user.team === '2팀'
-                                ? 'bg-red-100 text-red-700 border-2 border-red-200'
-                                : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
-                            }`}>
-                              {user.team || '팀 없음'}
-                            </span>
-                          </div>
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${getTeamStyle(user.team)}`}>
+                            {user.team || '팀 없음'}
+                          </span>
 
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              getUserInjuries(user.id) >= 4
-                                ? 'bg-red-100 text-red-700 border-2 border-red-200'
-                                : getUserInjuries(user.id) >= 2
-                                ? 'bg-orange-100 text-orange-700 border-2 border-orange-200'
-                                : 'bg-green-100 text-green-700 border-2 border-green-200'
-                            }`}>
-                              부상 {getUserInjuries(user.id)}/4
-                              {getUserInjuries(user.id) >= 4 && ' (탈락)'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 팀 배정 버튼 */}
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            🏆 팀 배정
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => handleTeamUpdate(user.id, 1)}
-                              disabled={updateLoading[user.id]}
-                              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
-                                user.team === '1팀'
-                                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-200'
-                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-2 border-blue-200'
-                              } disabled:opacity-50 disabled:transform-none`}
-                            >
-                              1팀
-                            </button>
-                            <button
-                              onClick={() => handleTeamUpdate(user.id, 2)}
-                              disabled={updateLoading[user.id]}
-                              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
-                                user.team === '2팀'
-                                  ? 'bg-red-500 text-white shadow-lg shadow-red-200'
-                                  : 'bg-red-100 text-red-700 hover:bg-red-200 border-2 border-red-200'
-                              } disabled:opacity-50 disabled:transform-none`}
-                            >
-                              2팀
-                            </button>
-                            <button
-                              onClick={() => handleTeamUpdate(user.id, null)}
-                              disabled={updateLoading[user.id]}
-                              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all duration-200 transform hover:scale-105 border-2 border-gray-200 disabled:opacity-50 disabled:transform-none"
-                            >
-                              팀 해제
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 중앙: 보유 아이템 */}
-                      <div className="flex-1 px-4">
-                        <UserInventoryDisplay userId={user.id} loadUserInventory={loadUserInventory} userInventories={userInventories} />
-                      </div>
-
-                      {/* 오른쪽: 골드 조정 */}
-                      <div className="flex-shrink-0 w-80">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          💎 골드 조정
-                        </label>
-                        <div className="bg-gradient-to-r from-green-50 to-yellow-50 p-4 rounded-2xl border-2 border-green-100">
-                          <div className="grid grid-cols-3 gap-2 mb-3">
-                            <button
-                              onClick={() => handleGoldUpdate(user.id, user.gold || 0, 100, "add")}
-                              disabled={updateLoading[user.id]}
-                              className="px-3 py-2 bg-green-500 text-white text-sm rounded-xl hover:bg-green-600 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-200 font-semibold disabled:opacity-50 disabled:transform-none"
-                            >
-                              +100
-                            </button>
-                            <button
-                              onClick={() => handleGoldUpdate(user.id, user.gold || 0, 500, "add")}
-                              disabled={updateLoading[user.id]}
-                              className="px-3 py-2 bg-green-500 text-white text-sm rounded-xl hover:bg-green-600 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-200 font-semibold disabled:opacity-50 disabled:transform-none"
-                            >
-                              +500
-                            </button>
-                            <button
-                              onClick={() => handleGoldUpdate(user.id, user.gold || 0, 1000, "add")}
-                              disabled={updateLoading[user.id]}
-                              className="px-3 py-2 bg-green-500 text-white text-sm rounded-xl hover:bg-green-600 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-200 font-semibold disabled:opacity-50 disabled:transform-none"
-                            >
-                              +1000
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => handleGoldUpdate(user.id, user.gold || 0, 100, "subtract")}
-                              disabled={updateLoading[user.id]}
-                              className="px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-red-200 font-semibold disabled:opacity-50 disabled:transform-none"
-                            >
-                              -100
-                            </button>
-                            <button
-                              onClick={() => handleGoldUpdate(user.id, user.gold || 0, 0, "set")}
-                              disabled={updateLoading[user.id]}
-                              className="px-3 py-2 bg-gray-500 text-white text-sm rounded-xl hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-gray-200 font-semibold disabled:opacity-50 disabled:transform-none"
-                            >
-                              초기화
-                            </button>
-                          </div>
+                          <span className={`flex items-center gap-1 px-2 py-1 rounded text-sm font-medium ${
+                            getUserInjuries(user.id) >= 4
+                              ? 'bg-red-100 text-red-700 border border-red-200'
+                              : getUserInjuries(user.id) >= 2
+                              ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                              : 'bg-green-100 text-green-700 border border-green-200'
+                          }`}>
+                            <Heart className="w-3 h-3" />
+                            {getUserInjuries(user.id)}/4
+                            {getUserInjuries(user.id) >= 4 && ' (탈락)'}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     {/* 로딩 표시 */}
                     {updateLoading[user.id] && (
-                      <div className="mt-4 p-3 bg-blue-50 rounded-xl border-2 border-blue-100">
-                        <div className="text-sm text-blue-600 flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mr-2"></div>
-                          <span className="font-semibold">업데이트 중...</span>
-                        </div>
+                      <div className="text-sm text-blue-600 flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mr-2"></div>
+                        업데이트 중...
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  {/* 관리 섹션 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+                    {/* 팀 배정 */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <Crown className="w-4 h-4 inline mr-1" />
+                        팀 배정
+                      </label>
+                      <select
+                        value={user.team || ''}
+                        onChange={(e) => handleTeamUpdate(user.id, e.target.value || null)}
+                        disabled={updateLoading[user.id]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      >
+                        <option value="">팀 선택</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.name}>
+                            {team.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 보유 아이템 */}
+                    <div>
+                      <UserInventoryDisplay 
+                        userId={user.id} 
+                        loadUserInventory={loadUserInventory} 
+                        userInventories={userInventories} 
+                      />
+                    </div>
+
+                    {/* 골드 조정 */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <Coins className="w-4 h-4 inline mr-1" />
+                        골드 조정
+                      </label>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            onClick={() => handleGoldUpdate(user.id, user.gold || 0, 100, "add")}
+                            disabled={updateLoading[user.id]}
+                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                          >
+                            +100
+                          </button>
+                          <button
+                            onClick={() => handleGoldUpdate(user.id, user.gold || 0, 500, "add")}
+                            disabled={updateLoading[user.id]}
+                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                          >
+                            +500
+                          </button>
+                          <button
+                            onClick={() => handleGoldUpdate(user.id, user.gold || 0, 1000, "add")}
+                            disabled={updateLoading[user.id]}
+                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                          >
+                            +1000
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            onClick={() => handleGoldUpdate(user.id, user.gold || 0, 100, "subtract")}
+                            disabled={updateLoading[user.id]}
+                            className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+                          >
+                            -100
+                          </button>
+                          <button
+                            onClick={() => handleGoldUpdate(user.id, user.gold || 0, 0, "set")}
+                            disabled={updateLoading[user.id]}
+                            className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+                          >
+                            초기화
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

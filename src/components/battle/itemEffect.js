@@ -41,8 +41,9 @@ export const ITEM_EFFECT_EMOJIS = {
 };
 
 // 아이템 효과 실행 함수들
-export const executeItemEffect = async (effect, targetUserId, targetTeam, battleContext) => {
+export const executeItemEffect = async (sourceUserId, effect, targetUserId, targetTeam, battleContext, notificationContext) => {
   const { updateInjuries, updateTeamInjuries, getBattleUserById, getUsersByTeam, checkAndConsumeDefense } = battleContext;
+  const { createNotification } = notificationContext;
   
   switch (effect) {
     case ITEM_EFFECTS.ATTACK:
@@ -52,9 +53,23 @@ export const executeItemEffect = async (effect, targetUserId, targetTeam, battle
       const hasDefense = await checkAndConsumeDefense(targetUserId);
       
       if (hasDefense) {
+        // 방어 성공 알림 (방어한 사람에게)
+        await createNotification(
+          targetUserId,
+          'defense', 
+          '방어권으로 공격을 성공적으로 막았습니다!',
+          sourceUserId
+        );
         return `${getBattleUserById(targetUserId)?.displayName}이(가) 방어권으로 공격을 막았습니다! 방어권 -1`;
       } else {
         await updateInjuries(targetUserId, 1);
+        // 공격 당함 알림 (공격당한 사람에게)
+        await createNotification(
+          targetUserId,
+          'attack', 
+          `${getBattleUserById(sourceUserId)?.displayName}에게 공격을 받아 부상을 입었습니다. 부상 +1`,
+          sourceUserId
+        );
         return `${getBattleUserById(targetUserId)?.displayName}에게 공격을 가했습니다! 부상 +1`;
       }
 
@@ -72,9 +87,23 @@ export const executeItemEffect = async (effect, targetUserId, targetTeam, battle
         const memberHasDefense = await checkAndConsumeDefense(member.id);
         if (memberHasDefense) {
           defendedCount++;
+          // 방어 성공 알림 (각 방어한 팀원에게)
+          await createNotification(
+            member.id,
+            'defense', 
+            `${getBattleUserById(sourceUserId)?.displayName}의 팀 공격을 방어권으로 막았습니다!`,
+            sourceUserId
+          );
         } else {
           await updateInjuries(member.id, 1);
           attackedCount++;
+          // 팀 공격 당함 알림 (각 공격당한 팀원에게)
+          await createNotification(
+            member.id,
+            'team_attack', 
+            `${getBattleUserById(sourceUserId)?.displayName}의 팀 공격을 받아 부상을 입었습니다. 부상 +1`,
+            sourceUserId
+          );
         }
       }
       
@@ -95,6 +124,13 @@ export const executeItemEffect = async (effect, targetUserId, targetTeam, battle
     case ITEM_EFFECTS.HEAL:
       if (!targetUserId) throw new Error('치료 대상을 선택해주세요.');
       await updateInjuries(targetUserId, -1);
+      // 치료 받음 알림 (치료받은 사람에게)
+      await createNotification(
+        targetUserId,
+        'heal', 
+        `${getBattleUserById(sourceUserId)?.displayName}이(가) 당신을 치료해주었습니다. 부상 -1`,
+        sourceUserId
+      );
       return `${getBattleUserById(targetUserId)?.displayName}을 치료했습니다! 부상 -1`;
 
     case ITEM_EFFECTS.SPECIAL_HEAL:
@@ -102,6 +138,13 @@ export const executeItemEffect = async (effect, targetUserId, targetTeam, battle
       const healTarget = getBattleUserById(targetUserId);
       const currentInjuries = healTarget?.injuries || 0;
       await updateInjuries(targetUserId, -currentInjuries);
+      // 완전 치료 받음 알림 (치료받은 사람에게)
+      await createNotification(
+        targetUserId,
+        'special_heal', 
+        `${getBattleUserById(sourceUserId)?.displayName}이(가) 특수 치료권으로 모든 부상을 치료해주었습니다!`,
+        sourceUserId
+      );
       return `${healTarget?.displayName}을 완전히 치료했습니다! 모든 부상 제거`;
 
     default:

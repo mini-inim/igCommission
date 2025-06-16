@@ -1,15 +1,18 @@
-// components/Navigation.jsx
-import React from 'react';
+// components/common/Navigation.jsx
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, Dice6, Shield, LogOut } from 'lucide-react';
+import { ShoppingBag, Dice6, Shield, LogOut, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUsers } from '../../contexts/UserContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const Navigation = ({ user }) => {
   const { logout } = useAuth();
   const { getUserById } = useUsers();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, getNotificationEmoji, getNotificationColor } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showNotifications, setShowNotifications] = useState(false);
   
   // UserContext에서 현재 사용자 정보 가져오기
   const currentUser = user ? getUserById(user.uid) : null;
@@ -26,11 +29,33 @@ const Navigation = ({ user }) => {
   // 현재 경로에 따라 활성 상태 확인
   const isActive = (path) => location.pathname === path;
 
+  // 알림 클릭 처리
+  const handleNotificationClick = async (notification) => {
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+  };
+
+  // 시간 포맷팅
+  const formatTime = (date) => {
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) {
+      const minutes = Math.floor(diffInHours * 60);
+      return `${minutes}분 전`;
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)}시간 전`;
+    } else {
+      return `${Math.floor(diffInHours / 24)}일 전`;
+    }
+  };
+
   return (
     <nav className="bg-gray-900 border-b border-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
-          <h1 className="text-3xl font-bold text-white">밀고톡</h1>
+          <h1 className="text-2xl font-bold text-white">밀고톡</h1>
           <div className="flex space-x-6">
             <button
               onClick={() => navigate('/shop')}
@@ -41,7 +66,7 @@ const Navigation = ({ user }) => {
               }`}
             >
               <ShoppingBag className="w-5 h-5" />
-              <span>상점</span>
+              <span>아이템</span>
             </button>
             <button
               onClick={() => navigate('/gambling')}
@@ -71,7 +96,77 @@ const Navigation = ({ user }) => {
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="text-right">
+          {/* 알림 버튼 */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-all"
+            >
+              <Bell className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* 알림 드롭다운 */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-800">알림</h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      모두 읽음
+                    </button>
+                  )}
+                </div>
+                
+                <div className="max-h-72 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">
+                      <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p>알림이 없습니다</p>
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                          !notification.isRead ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className={`p-2 rounded-full ${getNotificationColor(notification.type)}`}>
+                            <span className="text-lg">
+                              {getNotificationEmoji(notification.type)}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <p className={`text-sm ${!notification.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatTime(notification.createdAt)}
+                            </p>
+                          </div>
+                          {!notification.isRead && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-1"></div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="text-left">
             <p className="text-white font-medium">
               {user?.displayName || user?.email || '사용자'}
             </p>
@@ -79,6 +174,7 @@ const Navigation = ({ user }) => {
               보유 골드: {(currentUser?.gold || 0).toLocaleString()}
             </p>
           </div>
+          
           <button
             onClick={handleLogout}
             className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -88,6 +184,14 @@ const Navigation = ({ user }) => {
           </button>
         </div>
       </div>
+
+      {/* 드롭다운 닫기 위한 오버레이 */}
+      {showNotifications && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowNotifications(false)}
+        />
+      )}
     </nav>
   );
 };

@@ -9,7 +9,9 @@ import {
   setDoc,
   getDoc,
   runTransaction,
-  increment
+  increment,
+  addDoc,
+  deleteDoc
 } from "firebase/firestore";
 
 const BattleContext = createContext(null);
@@ -17,13 +19,54 @@ export const useBattle = () => useContext(BattleContext);
 
 export const BattleProvider = ({ children }) => {
   const [battleUsers, setBattleUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 팀 데이터 로드
+  const fetchTeams = async () => {
+    try {
+      const teamsCol = collection(db, "teams");
+      const teamsSnap = await getDocs(teamsCol);
+      
+      if (teamsSnap.empty) {
+        // 기본 팀 생성
+        const defaultTeams = [
+          { name: '레드팀', color: '#dc2626', members: 0 },
+          { name: '블루팀', color: '#2563eb', members: 0 }
+        ];
+        
+        for (const team of defaultTeams) {
+          await addDoc(teamsCol, team);
+        }
+        
+        // 다시 로드
+        const newTeamsSnap = await getDocs(teamsCol);
+        const teamsData = newTeamsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setTeams(teamsData);
+      } else {
+        const teamsData = teamsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setTeams(teamsData);
+      }
+    } catch (error) {
+      console.error("팀 데이터 로드 실패:", error);
+    }
+  };
 
   // 배틀 사용자 정보 로드
   useEffect(() => {
     const fetchBattleUsers = async () => {
       try {
         setLoading(true);
+        
+        // 팀 데이터 먼저 로드
+        await fetchTeams();
+        
         const usersCol = collection(db, "users");
         const snap = await getDocs(usersCol);
         
@@ -50,6 +93,9 @@ export const BattleProvider = ({ children }) => {
         );
         
         setBattleUsers(users);
+        
+        // 팀별 멤버 수 업데이트
+        updateTeamMemberCounts(users);
       } catch (error) {
         console.error("배틀 사용자 데이터 로드 실패:", error);
       } finally {
@@ -59,6 +105,16 @@ export const BattleProvider = ({ children }) => {
     
     fetchBattleUsers();
   }, []);
+
+  // 팀별 멤버 수 업데이트
+  const updateTeamMemberCounts = (users = battleUsers) => {
+    setTeams(prev => 
+      prev.map(team => ({
+        ...team,
+        members: users.filter(user => user.team === team.name).length
+      }))
+    );
+  };
 
   // 부상 업데이트
   const updateInjuries = async (userId, injuryChange) => {
@@ -178,7 +234,91 @@ export const BattleProvider = ({ children }) => {
     return battleUsers.filter(user => !user.isEliminated);
   };
 
+  // ===== 팀 관리 함수들 =====
+  
+  // 팀 추가
+  const addTeam = async (teamData) => {
+    try {
+      const teamsCol = collection(db, "teams");
+      const docRef = await addDoc(teamsCol, {
+        name: teamData.name.trim(),
+        color: teamData.color,
+        members: 0
+      });
+      
+      const newTeam = {
+        id: docRef.id,
+        name: teamData.name.trim(),
+        color: teamData.color,
+        members: 0
+      };
+      
+      setTeams(prev => [...prev, newTeam]);
+      return newTeam;
+    } catch (error) {
+      console.error("팀 추가 실패:", error);
+      throw error;
+    }
+  };
+
+  // 팀 수정
+  const updateTeam = async (teamId, updatedData) => {
+    try {
+      const teamRef = doc(db, "teams", teamId);
+      await updateDoc(teamRef, {
+        name: updatedData.name.trim(),
+        color: updatedData.color
+      });
+      
+      setTeams(prev => 
+        prev.map(team => 
+          team.id === teamId 
+            ? { ...team, ...updatedData, name: updatedData.name.trim() }
+            : team
+        )
+      );
+    } catch (error) {
+      console.error("팀 수정 실패:", error);
+      throw error;
+    }
+  };
+
+  // 팀 삭제
+  const deleteTeam = async (teamId) => {
+    try {
+      const teamRef = doc(db, "teams", teamId);
+      await deleteDoc(teamRef);
+      
+      setTeams(prev => prev.filter(team => team.id !== teamId));
+    } catch (error) {
+      console.error("팀 삭제 실패:", error);
+      throw error;
+    }
+  };
+
+  // 팀 멤버 수 업데이트 (개별)
+  const updateTeamMemberCount = (teamName, increment = true) => {
+    setTeams(prev => 
+      prev.map(team => 
+        team.name === teamName 
+          ? { ...team, members: Math.max(0, team.members + (increment ? 1 : -1)) }
+          : team
+      )
+    );
+  };
+
+  // ID로 팀 찾기
+  const getTeamById = (teamId) => {
+    return teams.find(team => team.id === teamId);
+  };
+
+  // 이름으로 팀 찾기
+  const getTeamByName = (teamName) => {
+    return teams.find(team => team.name === teamName);
+  };
+
   const value = {
+    // 기존 배틀 관련
     battleUsers,
     loading,
     updateInjuries,
@@ -187,6 +327,16 @@ export const BattleProvider = ({ children }) => {
     getUsersByTeam,
     getActiveBattleUsers,
     checkAndConsumeDefense,
+    
+    // 새로 추가된 팀 관리 관련
+    teams,
+    addTeam,
+    updateTeam,
+    deleteTeam,
+    updateTeamMemberCount,
+    updateTeamMemberCounts,
+    getTeamById,
+    getTeamByName
   };
 
   return (
