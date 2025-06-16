@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { PageProvider } from './contexts/PageContext';
 import { ItemProvider } from './contexts/ItemContext';
 import { UserProvider } from './contexts/UserContext';
+import { BattleProvider } from './contexts/BattleContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -13,9 +14,11 @@ root.render(
     <AuthProvider>
       <PageProvider>
         <UserProvider>
-          <ItemProvider>
-            <App />
-          </ItemProvider>
+          <BattleProvider>
+            <ItemProvider>
+              <App />
+            </ItemProvider>
+          </BattleProvider>
         </UserProvider>
       </PageProvider>
     </AuthProvider>
