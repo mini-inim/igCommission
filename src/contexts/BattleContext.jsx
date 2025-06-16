@@ -8,7 +8,8 @@ import {
   doc,
   setDoc,
   getDoc,
-  runTransaction
+  runTransaction,
+  increment
 } from "firebase/firestore";
 
 const BattleContext = createContext(null);
@@ -125,6 +126,43 @@ export const BattleProvider = ({ children }) => {
     return battleUsers.filter(user => user.team === teamName);
   };
 
+  // 방어권 체크 및 소모 함수
+  const checkAndConsumeDefense = async (userId) => {
+    try {
+      const inventoryRef = collection(db, 'users', userId, 'inventory');
+      const inventorySnap = await getDocs(inventoryRef);
+      
+      // 방어권 찾기
+      const defenseItem = inventorySnap.docs.find(doc => {
+        const data = doc.data();
+        return data.itemName === '방어권' && (data.quantity || 0) > 0;
+      });
+      
+      if (defenseItem) {
+        // 방어권이 있으면 소모
+        const itemRef = doc(db, 'users', userId, 'inventory', defenseItem.id);
+        const currentQuantity = defenseItem.data().quantity || 0;
+        
+        await runTransaction(db, async (transaction) => {
+          if (currentQuantity <= 1) {
+            transaction.delete(itemRef);
+          } else {
+            transaction.update(itemRef, {
+              quantity: increment(-1)
+            });
+          }
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('방어권 체크 실패:', error);
+      return false;
+    }
+  };
+
   // 탈락하지 않은 사용자 조회
   const getActiveBattleUsers = () => {
     return battleUsers.filter(user => !user.isEliminated);
@@ -138,6 +176,7 @@ export const BattleProvider = ({ children }) => {
     getBattleUserById,
     getUsersByTeam,
     getActiveBattleUsers,
+    checkAndConsumeDefense,
   };
 
   return (

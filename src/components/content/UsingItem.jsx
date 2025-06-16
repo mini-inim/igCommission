@@ -1,22 +1,18 @@
 // components/content/UsingItem.jsx
-import React, { useState, useEffect } from "react";
-import { db } from "../../firebase";
-import { collection, getDocs, doc, runTransaction, increment } from "firebase/firestore";
+import React, { useState } from "react";
 import { useBattle } from '../../contexts/BattleContext';
 import { useUsers } from '../../contexts/UserContext';
-import { useItems } from '../../contexts/ItemContext';
-import { executeItemEffect, ITEM_EFFECTS, ITEM_EFFECT_NAMES, ITEM_EFFECT_DESCRIPTIONS, ITEM_EFFECT_COLORS, ITEM_EFFECT_EMOJIS } from '../battle/itemEffect'
+import { useInventory } from '../../contexts/InventoryContext';
+import { executeItemEffect, ITEM_EFFECT_NAMES, ITEM_EFFECT_DESCRIPTIONS, ITEM_EFFECT_COLORS, ITEM_EFFECT_EMOJIS, ITEM_EFFECTS } from '../battle/itemEffect';
 import BattleStatus from "../battle/BattleStatus";
 
 const UsingItem = ({ user }) => {
-  const { battleUsers, updateInjuries, updateTeamInjuries, getBattleUserById, getActiveBattleUsers } = useBattle();
+  const { updateInjuries, updateTeamInjuries, getBattleUserById, getActiveBattleUsers, getUsersByTeam, checkAndConsumeDefense } = useBattle();
   const { users } = useUsers();
-  const { items } = useItems();
-  const [inventory, setInventory] = useState([]);
+  const { inventory, loading: inventoryLoading, consumeItem, transferItem } = useInventory();
   const [selectedItem, setSelectedItem] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
   const [actionType, setActionType] = useState('use'); // 'use' 또는 'transfer'
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
 
   // 아이템 이름으로 효과 매핑
@@ -31,55 +27,20 @@ const UsingItem = ({ user }) => {
     return effectMap[itemName];
   };
 
-  // 인벤토리 로드 (UserItem과 동일한 로직)
-  useEffect(() => {
-    const fetchInventory = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        const inventoryRef = collection(db, 'users', user.uid, 'inventory');
-        const inventorySnap = await getDocs(inventoryRef);
-        
-        if (inventorySnap.empty) {
-          setInventory([]);
-          return;
-        }
-
-        const userItems = inventorySnap.docs.map((docSnap) => {
-          const data = docSnap.data();
-          const contextItem = items.find(item => item.id === data.itemId);
-          const itemName = data.itemName || contextItem?.name || "이름 없음";
-
-          return {
-            id: docSnap.id,
-            itemId: data.itemId || docSnap.id,
-            itemName: itemName,
-            itemEffect: getItemEffect(itemName), // 이름으로 효과 매핑
-            quantity: data.quantity || 0,
-            ...data
-          };
-        }).filter(item => item.quantity > 0);
-        
-        setInventory(userItems);
-      } catch (error) {
-        console.error('인벤토리 로드 실패:', error);
-        showMessage('인벤토리를 불러오는데 실패했습니다.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
-  }, [user, items]);
-
   const showMessage = (text, type = 'info') => {
     setMessage({ text, type });
     setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
   const getSelectedItemData = () => {
-    return inventory.find(item => item.id === selectedItem);
+    const item = inventory.find(item => item.id === selectedItem);
+    if (item) {
+      return {
+        ...item,
+        itemEffect: getItemEffect(item.itemName)
+      };
+    }
+    return null;
   };
 
   const handleUseItem = async () => {
@@ -100,39 +61,11 @@ const UsingItem = ({ user }) => {
         itemData.itemEffect,
         targetUserId,
         null,
-        { updateInjuries, updateTeamInjuries, getBattleUserById }
+        { updateInjuries, updateTeamInjuries, getBattleUserById, getUsersByTeam, checkAndConsumeDefense }
       );
 
-      // 인벤토리에서 아이템 차감
-      await runTransaction(db, async (transaction) => {
-        const itemRef = doc(db, 'users', user.uid, 'inventory', selectedItem);
-        const itemDoc = await transaction.get(itemRef);
-        
-        if (!itemDoc.exists()) {
-          throw new Error('아이템이 존재하지 않습니다.');
-        }
-        
-        const currentQuantity = itemDoc.data().quantity || 0;
-        
-        if (currentQuantity <= 1) {
-          transaction.delete(itemRef);
-        } else {
-          transaction.update(itemRef, {
-            quantity: increment(-1)
-          });
-        }
-      });
-
-      // 로컬 인벤토리 업데이트
-      setInventory(prev => 
-        prev.map(item => {
-          if (item.id === selectedItem) {
-            const newQuantity = item.quantity - 1;
-            return newQuantity <= 0 ? null : { ...item, quantity: newQuantity };
-          }
-          return item;
-        }).filter(Boolean)
-      );
+      // InventoryContext의 consumeItem 사용 (Firebase 트랜잭션 포함)
+      await consumeItem(selectedItem);
 
       showMessage(resultMessage, 'success');
       setSelectedItem('');
@@ -162,55 +95,8 @@ const UsingItem = ({ user }) => {
     }
 
     try {
-      await runTransaction(db, async (transaction) => {
-        // 현재 사용자 인벤토리에서 아이템 차감
-        const fromItemRef = doc(db, 'users', user.uid, 'inventory', selectedItem);
-        const fromItemDoc = await transaction.get(fromItemRef);
-        
-        if (!fromItemDoc.exists()) {
-          throw new Error('아이템이 존재하지 않습니다.');
-        }
-        
-        const currentQuantity = fromItemDoc.data().quantity || 0;
-        
-        if (currentQuantity <= 1) {
-          transaction.delete(fromItemRef);
-        } else {
-          transaction.update(fromItemRef, {
-            quantity: increment(-1)
-          });
-        }
-
-        // 대상 사용자 인벤토리에 아이템 추가
-        const toItemRef = doc(db, 'users', targetUserId, 'inventory', selectedItem);
-        const toItemDoc = await transaction.get(toItemRef);
-        
-        if (toItemDoc.exists()) {
-          transaction.update(toItemRef, {
-            quantity: increment(1),
-            lastReceivedAt: new Date()
-          });
-        } else {
-          transaction.set(toItemRef, {
-            ...itemData,
-            quantity: 1,
-            receivedAt: new Date(),
-            lastReceivedAt: new Date(),
-            transferredFrom: user.uid
-          });
-        }
-      });
-
-      // 로컬 인벤토리 업데이트
-      setInventory(prev => 
-        prev.map(item => {
-          if (item.id === selectedItem) {
-            const newQuantity = item.quantity - 1;
-            return newQuantity <= 0 ? null : { ...item, quantity: newQuantity };
-          }
-          return item;
-        }).filter(Boolean)
-      );
+      // InventoryContext의 transferItem 사용 (Firebase 트랜잭션 포함)
+      await transferItem(selectedItem, targetUserId);
 
       const targetUser = users.find(u => u.id === targetUserId);
       showMessage(`${itemData.itemName}을(를) ${targetUser?.displayName || '사용자'}에게 양도했습니다.`, 'success');
@@ -235,13 +121,12 @@ const UsingItem = ({ user }) => {
     }
   };
 
-  if (loading) {
+  if (inventoryLoading) {
     return (
       <div className="space-y-6">
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="text-center text-gray-500">아이템 로딩 중...</div>
         </div>
-        <BattleStatus />
       </div>
     );
   }
@@ -302,8 +187,8 @@ const UsingItem = ({ user }) => {
                 <option value="">아이템을 선택하세요</option>
                 {inventory.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {ITEM_EFFECT_EMOJIS[item.itemEffect] || '📦'} {item.itemName} (x{item.quantity})
-                    {item.itemEffect && ` - ${ITEM_EFFECT_NAMES[item.itemEffect]}`}
+                    {ITEM_EFFECT_EMOJIS[getItemEffect(item.itemName)] || '📦'} {item.itemName} (x{item.quantity})
+                    {getItemEffect(item.itemName) && ` - ${ITEM_EFFECT_NAMES[getItemEffect(item.itemName)]}`}
                   </option>
                 ))}
               </select>
@@ -364,9 +249,6 @@ const UsingItem = ({ user }) => {
           </div>
         </div>
       </div>
-
-      {/* 배틀 현황 */}
-      <BattleStatus />
     </div>
   );
 };

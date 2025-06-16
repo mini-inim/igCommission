@@ -4,19 +4,20 @@ import Navigation from './Navigation';
 import UserItem from './content/UserItem';
 import { useItems } from '../contexts/ItemContext';
 import { useUsers } from '../contexts/UserContext';
+import { useInventory } from '../contexts/InventoryContext';
 import { db } from "../firebase";
 import { 
   doc, 
   runTransaction,
-  increment,
-  collection,
-  setDoc
+  increment
 } from "firebase/firestore";
 import UsingItem from './content/UsingItem';
+import BattleStatus from './battle/BattleStatus'
 
 const ShopPage = ({ user }) => {
   const { items } = useItems();
-  const { users, updateUser, getUserById } = useUsers();
+  const { updateUser, getUserById } = useUsers();
+  const { refreshInventory } = useInventory();
   
   const [purchaseLoading, setPurchaseLoading] = useState({});
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -94,6 +95,11 @@ const ShopPage = ({ user }) => {
       // 트랜잭션 성공 후 UserContext 업데이트로 네비게이션 실시간 갱신
       await updateUser(user.uid, { gold: updatedGold });
 
+      // InventoryContext 실시간 갱신 (Firebase에서 다시 로드)
+      console.log('구매 완료, 인벤토리 새로고침 시작');
+      await refreshInventory();
+      console.log('인벤토리 새로고침 완료');
+
       showMessage(`${item.name}을(를) 구매했습니다!`, 'success');
       
     } catch (error) {
@@ -136,6 +142,10 @@ const ShopPage = ({ user }) => {
           <h2 className="text-3xl font-bold text-gray-800 mb-2">아이템 상점</h2>
           <p className="text-gray-600">관리자가 등록한 다양한 아이템을 구매하여 모험을 더욱 풍성하게 만드세요!</p>
         </div>
+
+          
+        {/* 배틀 현황 */}
+        <BattleStatus />
 
         {/* 상점 아이템 그리드 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
