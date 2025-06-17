@@ -14,8 +14,11 @@ const BattleStatus = () => {
     );
   }
 
-  // admin@test.com 제외하고 팀별 그룹화
-  const filteredUsers = battleUsers.filter(user => user.email !== 'admin@test.com');
+  // 방법 2: includes() 사용 (더 깔끔함)
+  const excludeEmails = ['admin@test.com', 'watcher@crepe.com'];
+  const filteredUsers = battleUsers.filter(user => 
+    !excludeEmails.includes(user.email)
+  );
   
   const teamGroups = filteredUsers.reduce((groups, user) => {
     const team = user.team || '무소속';
