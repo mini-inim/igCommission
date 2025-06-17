@@ -63,13 +63,12 @@ const Navigation = ({ user }) => {
     <>
       <nav className="bg-gray-900 border-b border-gray-700 px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
-          {/* 로고 */}
-          <div className="flex items-center">
+          {/* 로고 + 데스크톱 네비게이션 */}
+          <div className="flex items-center space-x-8">
             <h1 className="text-xl sm:text-2xl font-bold text-white">밀고톡</h1>
-          </div>
-
-          {/* 데스크톱 네비게이션 */}
-          <div className="hidden md:flex items-center space-x-6">
+            
+            {/* 데스크톱 네비게이션 */}
+            <div className="hidden md:flex items-center space-x-6">
             <button
               onClick={() => navigate('/shop')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
@@ -105,6 +104,7 @@ const Navigation = ({ user }) => {
                 <span>관리자</span>
               </button>
             )}
+            </div>
           </div>
 
           {/* 우측 컨트롤 */}
