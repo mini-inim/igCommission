@@ -29,23 +29,7 @@ export const BattleProvider = ({ children }) => {
       const teamsSnap = await getDocs(teamsCol);
       
       if (teamsSnap.empty) {
-        // 기본 팀 생성
-        const defaultTeams = [
-          { name: '레드팀', color: '#dc2626', members: 0 },
-          { name: '블루팀', color: '#2563eb', members: 0 }
-        ];
         
-        for (const team of defaultTeams) {
-          await addDoc(teamsCol, team);
-        }
-        
-        // 다시 로드
-        const newTeamsSnap = await getDocs(teamsCol);
-        const teamsData = newTeamsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setTeams(teamsData);
       } else {
         const teamsData = teamsSnap.docs.map(doc => ({
           id: doc.id,
