@@ -40,8 +40,10 @@ const Navigation = ({ user }) => {
 
   // 네비게이션 클릭 시 모바일 메뉴 닫기
   const handleNavClick = (path) => {
-    navigate(path);
-    setShowMobileMenu(false);
+    setShowMobileMenu(false); // 먼저 메뉴 닫기
+    setTimeout(() => {
+      navigate(path); // 약간의 딜레이 후 네비게이션
+    }, 100);
   };
 
   // 시간 포맷팅
@@ -210,7 +212,7 @@ const Navigation = ({ user }) => {
 
         {/* 모바일 메뉴 */}
         {showMobileMenu && (
-          <div className="md:hidden mt-4 pb-4 border-t border-gray-700 pt-4">
+          <div className="md:hidden mt-4 pb-4 border-t border-gray-700 pt-4 relative z-50">
             {/* 사용자 정보 */}
             <div className="px-4 py-3 border-b border-gray-700 mb-3">
               <p className="text-white font-medium">
@@ -281,7 +283,7 @@ const Navigation = ({ user }) => {
       {/* 모바일 메뉴 닫기 위한 오버레이 */}
       {showMobileMenu && (
         <div 
-          className="fixed inset-0 z-30 md:hidden" 
+          className="fixed inset-0 z-20 md:hidden" 
           onClick={() => setShowMobileMenu(false)}
         />
       )}
