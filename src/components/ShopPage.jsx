@@ -121,16 +121,11 @@ const ShopPage = ({ user }) => {
 
       // 트랜잭션 성공 후 UserContext 업데이트로 네비게이션 실시간 갱신
       await updateUser(user.uid, { gold: updatedGold });
-
-      // InventoryContext 실시간 갱신 (Firebase에서 다시 로드)
-      console.log('구매 완료, 인벤토리 새로고침 시작');
       await refreshInventory();
-      console.log('인벤토리 새로고침 완료');
 
       showMessage(`${item.name}을(를) 구매했습니다!`, 'success');
       
     } catch (error) {
-      console.error('구매 오류:', error);
       showMessage(error.message || '구매 중 오류가 발생했습니다.', 'error');
     } finally {
       setPurchaseLoading(prev => ({ ...prev, [item.id]: false }));

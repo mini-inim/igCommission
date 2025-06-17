@@ -32,14 +32,11 @@ const AuthPage = () => {
           updatedAt: new Date(),
           lastLogin: new Date()
         });
-        console.log('새 사용자 문서가 생성되었습니다.');
       } else {
-        // 기존 사용자라면 마지막 로그인 시간만 업데이트
         await setDoc(userRef, {
           lastLogin: new Date(),
           updatedAt: new Date()
         }, { merge: true });
-        console.log('기존 사용자 로그인 정보가 업데이트되었습니다.');
       }
     } catch (error) {
       console.error('사용자 문서 생성/업데이트 오류:', error);

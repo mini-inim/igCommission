@@ -23,7 +23,6 @@ export const InventoryProvider = ({ children }) => {
 
   // 인벤토리 새로고침 함수
   const refreshInventory = async () => {
-    console.log('refreshInventory 호출됨, user:', user?.uid);
     
     if (!user) {
       setInventory([]);
@@ -33,8 +32,6 @@ export const InventoryProvider = ({ children }) => {
     try {
       const inventoryRef = collection(db, 'users', user.uid, 'inventory');
       const inventorySnap = await getDocs(inventoryRef);
-      
-      console.log('Firebase 인벤토리 조회 결과:', inventorySnap.size, '개 문서');
       
       if (inventorySnap.empty) {
         setInventory([]);
@@ -54,7 +51,6 @@ export const InventoryProvider = ({ children }) => {
         };
       }).filter(item => item.quantity > 0);
       
-      console.log('새로운 인벤토리 데이터:', userItems);
       setInventory(userItems);
     } catch (error) {
       console.error('인벤토리 새로고침 실패:', error);

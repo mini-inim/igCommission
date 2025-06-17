@@ -9,10 +9,6 @@ import {
 } from 'firebase/auth';
 import { getFirestore } from "firebase/firestore";
 
-// 🔍 환경변수 확인
-console.log('API_KEY:', process.env.REACT_APP_API_KEY);
-console.log('AUTH_DOMAIN:', process.env.REACT_APP_AUTH_DOMAIN);
-
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_API_KEY,           // ✅ 수정됨
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,   // ✅ 수정됨
