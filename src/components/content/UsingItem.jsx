@@ -1,5 +1,5 @@
 // components/content/UsingItem.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useBattle } from '../../contexts/BattleContext';
 import { useUsers } from '../../contexts/UserContext';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -16,6 +16,30 @@ const UsingItem = ({ user }) => {
   const [targetUserId, setTargetUserId] = useState('');
   const [actionType, setActionType] = useState('use'); // 'use' 또는 'transfer'
   const [message, setMessage] = useState({ text: '', type: '' });
+  
+  // 쿨다운 관련 상태
+  const [isOnCooldown, setIsOnCooldown] = useState(false);
+  const [cooldownTime, setCooldownTime] = useState(0);
+
+  // 쿨다운 타이머 효과
+  useEffect(() => {
+    let interval;
+    if (isOnCooldown && cooldownTime > 0) {
+      interval = setInterval(() => {
+        setCooldownTime(prev => {
+          if (prev <= 1) {
+            setIsOnCooldown(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOnCooldown, cooldownTime]);
 
   // 아이템 이름으로 효과 매핑
   const getItemEffect = (itemName) => {
@@ -45,9 +69,19 @@ const UsingItem = ({ user }) => {
     return null;
   };
 
+  const startCooldown = () => {
+    setIsOnCooldown(true);
+    setCooldownTime(7);
+  };
+
   const handleUseItem = async () => {
     if (!selectedItem || !targetUserId) {
       showMessage('아이템과 대상을 모두 선택해주세요.', 'error');
+      return;
+    }
+
+    if (isOnCooldown) {
+      showMessage(`아이템 사용 대기 중입니다. ${cooldownTime}초 후 다시 시도해주세요.`, 'error');
       return;
     }
 
@@ -58,6 +92,9 @@ const UsingItem = ({ user }) => {
     }
 
     try {
+      // 쿠다운 시작
+      startCooldown();
+
       // 아이템 효과 실행
       const resultMessage = await executeItemEffect(
         user.uid,
@@ -78,6 +115,9 @@ const UsingItem = ({ user }) => {
     } catch (error) {
       console.error('아이템 사용 실패:', error);
       showMessage(error.message || '아이템 사용 중 오류가 발생했습니다.', 'error');
+      // 오류 발생 시 쿨다운 취소
+      setIsOnCooldown(false);
+      setCooldownTime(0);
     }
   };
 
@@ -187,6 +227,7 @@ const UsingItem = ({ user }) => {
                 value={selectedItem}
                 onChange={(e) => setSelectedItem(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={actionType === 'use' && isOnCooldown}
               >
                 <option value="">아이템을 선택하세요</option>
                 {inventory.map((item) => (
@@ -214,10 +255,21 @@ const UsingItem = ({ user }) => {
                 value={targetUserId}
                 onChange={(e) => setTargetUserId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={actionType === 'use' && isOnCooldown}
               >
                 <option value="">사용자를 선택하세요</option>
                 {(actionType === 'use' ? getActiveBattleUsers() : users)
-                  .filter(u => actionType === 'transfer' ? u.id !== user.uid : true)
+                  .filter(u => {
+                    // 관리자/관찰자 계정 제외
+                    if (u.email === 'admin@test.com' || u.email === 'watcher@crepe.com') {
+                      return false;
+                    }
+                    // 양도 시 자신 제외
+                    if (actionType === 'transfer' && u.id === user.uid) {
+                      return false;
+                    }
+                    return true;
+                  })
                   .map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.displayName || u.email}
@@ -235,10 +287,14 @@ const UsingItem = ({ user }) => {
               {actionType === 'use' ? (
                 <button 
                   onClick={handleUseItem}
-                  disabled={!selectedItem || !targetUserId}
-                  className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  disabled={!selectedItem || !targetUserId || isOnCooldown}
+                  className={`w-full px-4 py-2 rounded-md transition-colors ${
+                    isOnCooldown 
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  } ${(!selectedItem || !targetUserId) && !isOnCooldown ? 'bg-gray-400 cursor-not-allowed' : ''}`}
                 >
-                  아이템 사용
+                  {isOnCooldown ? `아이템 사용 (${cooldownTime}초 대기)` : '아이템 사용'}
                 </button>
               ) : (
                 <button 
