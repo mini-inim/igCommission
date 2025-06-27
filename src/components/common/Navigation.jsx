@@ -1,7 +1,7 @@
 // components/common/Navigation.jsx
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, Dice6, Shield, LogOut, Bell, Menu, X } from 'lucide-react';
+import { ShoppingBag, Dice6, Shield, LogOut, Bell, Menu, X, UserX, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUsers } from '../../contexts/UserContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -14,6 +14,8 @@ const Navigation = ({ user }) => {
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // UserContext에서 현재 사용자 정보 가져오기
   const currentUser = user ? getUserById(user.uid) : null;
@@ -25,6 +27,84 @@ const Navigation = ({ user }) => {
       setShowMobileMenu(false);
     } catch (error) {
       console.error('로그아웃 실패:', error);
+    }
+  };
+
+  // 회원탈퇴 함수
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleteLoading(true);
+
+      const { deleteUser } = await import('firebase/auth');
+      const { getAuth } = await import('firebase/auth');
+      
+      const auth = getAuth();
+      const currentAuthUser = auth.currentUser;
+
+      if (!currentAuthUser) {
+        throw new Error('로그인 상태를 확인할 수 없습니다.');
+      }
+
+      // Firestore에서 사용자 데이터 삭제
+      await deleteUserData(currentAuthUser.uid);
+
+      // Firebase Auth에서 계정 삭제
+      await deleteUser(currentAuthUser);
+
+      alert('계정이 성공적으로 삭제되었습니다.');
+      
+      // 로그인 페이지로 리다이렉트
+      navigate('/login');
+
+    } catch (error) {
+      console.error('계정 삭제 실패:', error);
+      
+      if (error.code === 'auth/requires-recent-login') {
+        alert('보안을 위해 다시 로그인한 후 계정 삭제를 시도해주세요.');
+        // 로그아웃 후 로그인 페이지로
+        await logout();
+        navigate('/login');
+      } else {
+        alert(`계정 삭제 실패: ${error.message}`);
+      }
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+      setShowMobileMenu(false);
+    }
+  };
+
+  // Firestore 데이터 삭제 함수
+  const deleteUserData = async (userId) => {
+    try {
+      const { doc, deleteDoc, collection, getDocs } = await import('firebase/firestore');
+      const { db } = await import('../../firebase');
+
+      // 하위 컬렉션들 삭제
+      const subcollections = ['inventory', 'battles', 'notifications', 'battleLogs'];
+      
+      for (const collectionName of subcollections) {
+        try {
+          const subcollectionRef = collection(db, 'users', userId, collectionName);
+          const snapshot = await getDocs(subcollectionRef);
+          
+          const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+          if (deletePromises.length > 0) {
+            await Promise.all(deletePromises);
+          }
+        } catch (error) {
+          console.log(`${collectionName} 삭제 중 오류:`, error);
+        }
+      }
+
+      // 메인 사용자 문서 삭제
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+
+      console.log('사용자 데이터 삭제 완료');
+    } catch (error) {
+      console.error('사용자 데이터 삭제 실패:', error);
+      throw error;
     }
   };
 
@@ -191,14 +271,24 @@ const Navigation = ({ user }) => {
               </p>
             </div>
 
-            {/* 데스크톱 로그아웃 버튼 */}
-            <button
-              onClick={handleLogout}
-              className="hidden sm:flex items-center space-x-2 px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden lg:inline">로그아웃</span>
-            </button>
+            {/* 데스크톱 메뉴 버튼들 */}
+            <div className="hidden sm:flex items-center space-x-2">
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+              >
+                <UserX className="w-4 h-4" />
+                <span className="hidden lg:inline">회원탈퇴</span>
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden lg:inline">로그아웃</span>
+              </button>
+            </div>
 
             {/* 모바일 햄버거 메뉴 버튼 */}
             <button
@@ -260,9 +350,19 @@ const Navigation = ({ user }) => {
                   <span>관리자</span>
                 </button>
               )}
+              
+              {/* 모바일 회원탈퇴 버튼 */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                <UserX className="w-5 h-5" />
+                <span>회원탈퇴</span>
+              </button>
+              
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-3 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >
                 <LogOut className="w-5 h-5" />
                 <span>로그아웃</span>
@@ -271,6 +371,60 @@ const Navigation = ({ user }) => {
           </div>
         )}
       </nav>
+
+      {/* 회원탈퇴 확인 모달 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">계정 삭제 확인</h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                정말로 계정을 삭제하시겠습니까?
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  ⚠️ 삭제되는 데이터:
+                </p>
+                <ul className="text-sm text-red-700 space-y-1">
+                  <li>• 사용자 계정 정보</li>
+                  <li>• 게임 진행 상황</li>
+                  <li>• 보유 아이템 및 골드</li>
+                  <li>• 배틀 기록</li>
+                  <li>• 모든 개인 데이터</li>
+                </ul>
+                <p className="text-sm text-red-800 font-medium mt-2">
+                  이 작업은 되돌릴 수 없습니다!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+              >
+                {deleteLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  '계정 삭제'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 알림 드롭다운 닫기 위한 오버레이 */}
       {showNotifications && (
