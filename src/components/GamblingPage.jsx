@@ -18,34 +18,88 @@ const GamblingPage = ({ user }) => {
   const currentUser = getUserById(user?.uid);
   const userGold = currentUser?.gold || 0;
 
-  // 오늘 날짜 문자열 (YYYY-MM-DD)
+  // 오늘 날짜 문자열 (YYYY-MM-DD) - 한국 시간 기준
   const getTodayString = () => {
-    // 한국 시간 기준으로 변경
+    // 한국 시간으로 변환 (Intl.DateTimeFormat 사용)
     const now = new Date();
-    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
-    return koreaTime.toISOString().split('T')[0];
+    
+    const koreaTime = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(now);
+    
+    const year = koreaTime.find(part => part.type === 'year').value;
+    const month = koreaTime.find(part => part.type === 'month').value;
+    const day = koreaTime.find(part => part.type === 'day').value;
+    const hour = parseInt(koreaTime.find(part => part.type === 'hour').value);
+    const minute = parseInt(koreaTime.find(part => part.type === 'minute').value);
+    
+    // admin@test.com 계정은 12:30에 초기화
+    if (user?.email === 'admin@test.com') {
+      // 현재 시간이 12:30 이전이면 전날 기준으로 계산
+      let resetDate = new Date(`${year}-${month}-${day}`);
+      
+      if (hour < 12 || (hour === 12 && minute < 30)) {
+        resetDate.setDate(resetDate.getDate() - 1);
+        console.log('admin 계정: 12:30 이전이므로 전날 기준 적용');
+      }
+      
+      const resetYear = resetDate.getFullYear();
+      const resetMonth = String(resetDate.getMonth() + 1).padStart(2, '0');
+      const resetDay = String(resetDate.getDate()).padStart(2, '0');
+      
+      const todayString = `${resetYear}-${resetMonth}-${resetDay}-admin`;
+      console.log('admin 계정 한국 시간 기준 날짜 (12:30 기준):', todayString);
+      
+      return todayString;
+    }
+    
+    // 일반 사용자는 0시에 초기화
+    const todayString = `${year}-${month}-${day}`;
+    console.log('일반 사용자 한국 시간 기준 오늘 날짜:', todayString);
+    
+    return todayString;
   };
 
   // 일일 플레이 횟수 확인
   useEffect(() => {
     const fetchDailyPlays = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('사용자 정보 없음');
+        return;
+      }
 
       try {
         const today = getTodayString();
         const userGamblingRef = doc(db, 'users', user.uid, 'gambling', today);
+        
+        console.log('Firebase 문서 경로:', `users/${user.uid}/gambling/${today}`);
+        console.log('사용자 UID:', user.uid);
+        
         const gamblingDoc = await getDoc(userGamblingRef);
+
+        console.log('현재 날짜 키:', today);
+        console.log('문서 존재:', gamblingDoc.exists());
 
         if (gamblingDoc.exists()) {
           const data = gamblingDoc.data();
+          console.log('문서 데이터:', data);
           setDailyPlays(data.plays || 0);
           setLastPlayDate(data.date);
         } else {
+          console.log('문서가 존재하지 않아 초기화');
           setDailyPlays(0);
           setLastPlayDate(null);
         }
       } catch (error) {
         console.error('일일 플레이 횟수 조회 실패:', error);
+        console.error('에러 상세:', error.message);
+        console.error('에러 코드:', error.code);
       } finally {
         setLoading(false);
       }
@@ -117,7 +171,9 @@ const GamblingPage = ({ user }) => {
           
           {remainingPlays === 0 && (
             <div className="mt-4 p-4 bg-red-600 rounded-lg text-center">
-              <p className="text-white font-medium">오늘의 게임 횟수를 모두 사용했습니다. 내일 다시 도전하세요!</p>
+              <p className="text-white font-medium">
+                오늘의 게임 횟수를 모두 사용했습니다. 
+              </p>
             </div>
           )}
         </div>
