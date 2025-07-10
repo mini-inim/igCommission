@@ -11,7 +11,6 @@ const GamblingPage = ({ user }) => {
   const { getUserById } = useUsers();
   const [activeGame, setActiveGame] = useState('coin'); // 'coin' 또는 'roulette'
   const [dailyPlays, setDailyPlays] = useState(0);
-  const [lastPlayDate, setLastPlayDate] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // 현재 사용자 정보
@@ -20,50 +19,105 @@ const GamblingPage = ({ user }) => {
 
   // 오늘 날짜 문자열 (YYYY-MM-DD) - 한국 시간 기준
   const getTodayString = () => {
-    // 한국 시간으로 변환 (Intl.DateTimeFormat 사용)
     const now = new Date();
     
     const koreaTime = new Intl.DateTimeFormat('ko-KR', {
       timeZone: 'Asia/Seoul',
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
+      day: '2-digit'
     }).formatToParts(now);
     
     const year = koreaTime.find(part => part.type === 'year').value;
     const month = koreaTime.find(part => part.type === 'month').value;
     const day = koreaTime.find(part => part.type === 'day').value;
+    
+    const todayString = `${year}-${month}-${day}`;
+    console.log('한국 시간 기준 오늘 날짜:', todayString);
+    
+    return todayString;
+  };
+
+  // admin 계정용 시간 체크 (12:45 기준)
+  const getAdminResetTime = () => {
+    const now = new Date();
+    
+    const koreaTime = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(now);
+    
     const hour = parseInt(koreaTime.find(part => part.type === 'hour').value);
     const minute = parseInt(koreaTime.find(part => part.type === 'minute').value);
     
-    // admin@test.com 계정은 12:30에 초기화
-    if (user?.email === 'admin@test.com') {
-      // 현재 시간이 12:30 이전이면 전날 기준으로 계산
-      let resetDate = new Date(`${year}-${month}-${day}`);
+    return { hour, minute };
+  };
+
+  // 명시적 초기화 함수
+  const resetDailyPlays = async () => {
+    if (!user) return;
+    
+    try {
+      const today = getTodayString();
+      const userGamblingRef = doc(db, 'users', user.uid, 'gambling', 'current');
       
-      if (hour < 12 || (hour === 12 && minute < 35)) {
-        resetDate.setDate(resetDate.getDate() - 1);
-        console.log('admin 계정: 12:30 이전이므로 전날 기준 적용');
-      }
+      await setDoc(userGamblingRef, {
+        plays: 0,
+        lastResetDate: today,
+        lastUpdated: new Date(),
+        resetTime: new Date()
+      });
       
-      const resetYear = resetDate.getFullYear();
-      const resetMonth = String(resetDate.getMonth() + 1).padStart(2, '0');
-      const resetDay = String(resetDate.getDate()).padStart(2, '0');
-      
-      const todayString = `${resetYear}-${resetMonth}-${resetDay}-admin`;
-      console.log('admin 계정 한국 시간 기준 날짜 (12:35 기준):', todayString);
-      
-      return todayString;
+      setDailyPlays(0);
+      console.log('플레이 횟수 명시적 리셋 완료');
+    } catch (error) {
+      console.error('리셋 실패:', error);
     }
-    
-    // 일반 사용자는 0시에 초기화
-    const todayString = `${year}-${month}-${day}`;
-    console.log('일반 사용자 한국 시간 기준 오늘 날짜:', todayString);
-    
-    return todayString;
+  };
+
+  // 초기화가 필요한지 확인하는 함수
+  const checkAndResetIfNeeded = async () => {
+    if (!user) return;
+
+    try {
+      const today = getTodayString();
+      const userGamblingRef = doc(db, 'users', user.uid, 'gambling', 'current');
+      const gamblingDoc = await getDoc(userGamblingRef);
+
+      if (gamblingDoc.exists()) {
+        const data = gamblingDoc.data();
+        const lastResetDate = data.lastResetDate;
+        
+        console.log('마지막 리셋 날짜:', lastResetDate);
+        console.log('현재 날짜:', today);
+
+        // 날짜가 다르면 리셋 필요
+        if (lastResetDate !== today) {
+          // admin 계정의 경우 시간도 체크
+          if (user.email === 'admin@test.com') {
+            const { hour, minute } = getAdminResetTime();
+            const shouldReset = hour > 12 || (hour === 12 && minute >= 50);
+            
+            if (shouldReset) {
+              await resetDailyPlays();
+              console.log('admin 계정 12:50 기준 리셋 완료');
+            }
+          } else {
+            // 일반 사용자는 날짜만 바뀌면 리셋
+            await resetDailyPlays();
+            console.log('일반 사용자 자정 기준 리셋 완료');
+          }
+        }
+      } else {
+        // 문서가 없으면 초기 생성
+        await resetDailyPlays();
+        console.log('초기 문서 생성');
+      }
+    } catch (error) {
+      console.error('리셋 체크 실패:', error);
+    }
   };
 
   // 일일 플레이 횟수 확인
@@ -75,26 +129,24 @@ const GamblingPage = ({ user }) => {
       }
 
       try {
-        const today = getTodayString();
-        const userGamblingRef = doc(db, 'users', user.uid, 'gambling', today);
-        
-        console.log('Firebase 문서 경로:', `users/${user.uid}/gambling/${today}`);
-        console.log('사용자 UID:', user.uid);
-        
+        // 먼저 리셋이 필요한지 확인하고 처리
+        await checkAndResetIfNeeded();
+
+        // 현재 플레이 데이터 조회
+        const userGamblingRef = doc(db, 'users', user.uid, 'gambling', 'current');
         const gamblingDoc = await getDoc(userGamblingRef);
 
-        console.log('현재 날짜 키:', today);
+        console.log('Firebase 문서 경로:', `users/${user.uid}/gambling/current`);
+        console.log('사용자 UID:', user.uid);
         console.log('문서 존재:', gamblingDoc.exists());
 
         if (gamblingDoc.exists()) {
           const data = gamblingDoc.data();
           console.log('문서 데이터:', data);
           setDailyPlays(data.plays || 0);
-          setLastPlayDate(data.date);
         } else {
           console.log('문서가 존재하지 않아 초기화');
           setDailyPlays(0);
-          setLastPlayDate(null);
         }
       } catch (error) {
         console.error('일일 플레이 횟수 조회 실패:', error);
@@ -113,15 +165,13 @@ const GamblingPage = ({ user }) => {
     if (!user || dailyPlays >= 5) return false;
 
     try {
-      const today = getTodayString();
-      const userGamblingRef = doc(db, 'users', user.uid, 'gambling', today);
+      const userGamblingRef = doc(db, 'users', user.uid, 'gambling', 'current');
       const newPlays = dailyPlays + 1;
 
-      await setDoc(userGamblingRef, {
+      await updateDoc(userGamblingRef, {
         plays: newPlays,
-        date: today,
         lastUpdated: new Date()
-      }, { merge: true });
+      });
 
       setDailyPlays(newPlays);
       return true;
@@ -150,6 +200,12 @@ const GamblingPage = ({ user }) => {
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold text-white mb-2">🎰 카지노</h2>
           <p className="text-gray-400">운을 시험해보세요!</p>
+          <p className="text-xs text-gray-500 mt-2">
+            {user?.email === 'admin@test.com' 
+              ? `다음 초기화: 매일 오후 12시 45분 (현재 날짜: ${getTodayString()})`
+              : `다음 초기화: 매일 오전 12시 (현재 날짜: ${getTodayString()})`
+            }
+          </p>
         </div>
 
         {/* 사용자 정보 및 제한 */}
@@ -173,6 +229,10 @@ const GamblingPage = ({ user }) => {
             <div className="mt-4 p-4 bg-red-600 rounded-lg text-center">
               <p className="text-white font-medium">
                 오늘의 게임 횟수를 모두 사용했습니다. 
+                {user?.email === 'admin@test.com' 
+                  ? ' 오후 12시 45분에 초기화됩니다!'
+                  : ' 내일 오전 12시에 초기화됩니다!'
+                }
               </p>
             </div>
           )}
