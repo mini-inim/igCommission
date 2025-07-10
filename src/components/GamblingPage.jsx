@@ -89,26 +89,10 @@ const GamblingPage = ({ user }) => {
       if (gamblingDoc.exists()) {
         const data = gamblingDoc.data();
         const lastResetDate = data.lastResetDate;
-        
-        console.log('마지막 리셋 날짜:', lastResetDate);
-        console.log('현재 날짜:', today);
 
         // 날짜가 다르면 리셋 필요
         if (lastResetDate !== today) {
-          // admin 계정의 경우 시간도 체크
-          if (user.email === 'admin@test.com') {
-            const { hour, minute } = getAdminResetTime();
-            const shouldReset = hour > 12 || (hour === 12 && minute >= 50);
-            
-            if (shouldReset) {
-              await resetDailyPlays();
-              console.log('admin 계정 12:50 기준 리셋 완료');
-            }
-          } else {
-            // 일반 사용자는 날짜만 바뀌면 리셋
             await resetDailyPlays();
-            console.log('일반 사용자 자정 기준 리셋 완료');
-          }
         }
       } else {
         // 문서가 없으면 초기 생성
@@ -135,10 +119,6 @@ const GamblingPage = ({ user }) => {
         // 현재 플레이 데이터 조회
         const userGamblingRef = doc(db, 'users', user.uid, 'gambling', 'current');
         const gamblingDoc = await getDoc(userGamblingRef);
-
-        console.log('Firebase 문서 경로:', `users/${user.uid}/gambling/current`);
-        console.log('사용자 UID:', user.uid);
-        console.log('문서 존재:', gamblingDoc.exists());
 
         if (gamblingDoc.exists()) {
           const data = gamblingDoc.data();
@@ -200,12 +180,6 @@ const GamblingPage = ({ user }) => {
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold text-white mb-2">🎰 카지노</h2>
           <p className="text-gray-400">운을 시험해보세요!</p>
-          <p className="text-xs text-gray-500 mt-2">
-            {user?.email === 'admin@test.com' 
-              ? `다음 초기화: 매일 오후 12시 45분 (현재 날짜: ${getTodayString()})`
-              : `다음 초기화: 매일 오전 12시 (현재 날짜: ${getTodayString()})`
-            }
-          </p>
         </div>
 
         {/* 사용자 정보 및 제한 */}
@@ -229,10 +203,6 @@ const GamblingPage = ({ user }) => {
             <div className="mt-4 p-4 bg-red-600 rounded-lg text-center">
               <p className="text-white font-medium">
                 오늘의 게임 횟수를 모두 사용했습니다. 
-                {user?.email === 'admin@test.com' 
-                  ? ' 오후 12시 45분에 초기화됩니다!'
-                  : ' 내일 오전 12시에 초기화됩니다!'
-                }
               </p>
             </div>
           )}
