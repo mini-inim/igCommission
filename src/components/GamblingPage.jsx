@@ -20,7 +20,10 @@ const GamblingPage = ({ user }) => {
 
   // 오늘 날짜 문자열 (YYYY-MM-DD)
   const getTodayString = () => {
-    return new Date().toISOString().split('T')[0];
+    // 한국 시간 기준으로 변경
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    return koreaTime.toISOString().split('T')[0];
   };
 
   // 일일 플레이 횟수 확인
