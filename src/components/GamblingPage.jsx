@@ -44,7 +44,7 @@ const GamblingPage = ({ user }) => {
       // 현재 시간이 12:30 이전이면 전날 기준으로 계산
       let resetDate = new Date(`${year}-${month}-${day}`);
       
-      if (hour < 12 || (hour === 12 && minute < 30)) {
+      if (hour < 12 || (hour === 12 && minute < 35)) {
         resetDate.setDate(resetDate.getDate() - 1);
         console.log('admin 계정: 12:30 이전이므로 전날 기준 적용');
       }
@@ -54,7 +54,7 @@ const GamblingPage = ({ user }) => {
       const resetDay = String(resetDate.getDate()).padStart(2, '0');
       
       const todayString = `${resetYear}-${resetMonth}-${resetDay}-admin`;
-      console.log('admin 계정 한국 시간 기준 날짜 (12:30 기준):', todayString);
+      console.log('admin 계정 한국 시간 기준 날짜 (12:35 기준):', todayString);
       
       return todayString;
     }
