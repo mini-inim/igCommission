@@ -14,12 +14,12 @@ const Roulette = ({ user, userGold, remainingPlays, onPlay }) => {
   // 룰렛 확률 및 배율 설정
   const rouletteOptions = [
     { multiplier: 10, probability: 1, color: 'from-yellow-400 to-yellow-600', emoji: '💎', name: '10배' },
-    { multiplier: 5, probability: 3, color: 'from-purple-400 to-purple-600', emoji: '🔮', name: '5배' },
-    { multiplier: 2, probability: 10, color: 'from-blue-400 to-blue-600', emoji: '💙', name: '2배' },
-    { multiplier: 1, probability: 26, color: 'from-green-400 to-green-600', emoji: '💚', name: '1배' },
-    { multiplier: 0, probability: 30, color: 'from-gray-400 to-gray-600', emoji: '😐', name: '0배' },
-    { multiplier: -1, probability: 20, color: 'from-orange-400 to-red-500', emoji: '😟', name: '-1배' },
-    { multiplier: -2, probability: 10, color: 'from-red-500 to-red-700', emoji: '😱', name: '-2배' }
+    { multiplier: 5, probability: 4, color: 'from-purple-400 to-purple-600', emoji: '🔮', name: '5배' },
+    { multiplier: 2, probability: 40, color: 'from-blue-400 to-blue-600', emoji: '💙', name: '2배' },
+    { multiplier: 1, probability: 15, color: 'from-green-400 to-green-600', emoji: '💚', name: '1배' },
+    { multiplier: 0, probability: 20, color: 'from-gray-400 to-gray-600', emoji: '😐', name: '0배' },
+    { multiplier: -1, probability: 15, color: 'from-orange-400 to-red-500', emoji: '😟', name: '-1배' },
+    { multiplier: -2, probability: 5, color: 'from-red-500 to-red-700', emoji: '😱', name: '-2배' }
   ];
 
   // 메시지 표시 함수

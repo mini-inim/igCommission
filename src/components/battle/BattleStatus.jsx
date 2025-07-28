@@ -209,7 +209,7 @@ const BattleStatus = () => {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <span className="text-lg">
-                                  {getInjuryEmoji(user.injuries)}
+                                  {user.isEliminated ? '💀' : getInjuryEmoji(user.injuries)}
                                 </span>
                                 <div>
                                   <div className={`font-medium ${
@@ -224,9 +224,12 @@ const BattleStatus = () => {
                                   )}
                                 </div>
                               </div>
-                              <div className={`px-2 py-1 rounded text-xs font-bold ${getInjuryColor(user.injuries)}`}>
-                                부상 {user.injuries}
-                              </div>
+                              {/* 탈락하지 않은 사용자만 부상 칸 표시 */}
+                              {!user.isEliminated && (
+                                <div className={`px-2 py-1 rounded text-xs font-bold ${getInjuryColor(user.injuries)}`}>
+                                  부상 {user.injuries}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -304,14 +307,13 @@ const BattleStatus = () => {
                                 }`}
                               >
                                 <div className="flex items-center space-x-2">
-                                  <span>{getInjuryEmoji(user.injuries)}</span>
+                                  <span>{user.isEliminated ? '💀' : getInjuryEmoji(user.injuries)}</span>
                                   <span className={user.isEliminated ? 'line-through' : ''}>
                                     {user.displayName}
                                   </span>
                                 </div>
                                 <span className="text-xs">
-                                  부상 {user.injuries}
-                                  {user.isEliminated && ' (탈락)'}
+                                  {user.isEliminated ? '탈락' : `부상 ${user.injuries}`}
                                 </span>
                               </div>
                             ))}
@@ -343,12 +345,12 @@ const BattleStatus = () => {
                             : 'bg-white text-gray-700'
                         }`}
                       >
-                        <div>{getInjuryEmoji(user.injuries)}</div>
+                        <div>{user.isEliminated ? '💀' : getInjuryEmoji(user.injuries)}</div>
                         <div className={user.isEliminated ? 'line-through' : ''}>
                           {user.displayName}
                         </div>
                         <div className="text-xs text-gray-500">
-                          부상 {user.injuries}
+                          {user.isEliminated ? '탈락' : `부상 ${user.injuries}`}
                         </div>
                       </div>
                     ))}

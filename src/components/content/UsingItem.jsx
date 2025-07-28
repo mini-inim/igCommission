@@ -10,7 +10,7 @@ import { useNotifications } from "../../contexts/NotificationContext";
 const UsingItem = ({ user }) => {
   const { updateInjuries, updateTeamInjuries, getBattleUserById, getActiveBattleUsers, getUsersByTeam, checkAndConsumeDefense } = useBattle();
   const { users } = useUsers();
-  const { inventory, loading: inventoryLoading, consumeItem, transferItem } = useInventory();
+  const { inventory, loading: inventoryLoading, consumeItem, transferItem, getUserItemQuantity } = useInventory();
   const { createNotification } = useNotifications();
   const [selectedItem, setSelectedItem] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
@@ -71,12 +71,19 @@ const UsingItem = ({ user }) => {
 
   const startCooldown = () => {
     setIsOnCooldown(true);
-    setCooldownTime(7);
+    setCooldownTime(10);
   };
 
   const handleUseItem = async () => {
     if (!selectedItem || !targetUserId) {
       showMessage('아이템과 대상을 모두 선택해주세요.', 'error');
+      return;
+    }
+
+    // 탈락자 아이템 사용 제한 확인
+    const currentUser = getBattleUserById(user.uid);
+    if (currentUser?.isEliminated) {
+      showMessage('탈락한 사용자는 아이템을 사용할 수 없습니다.', 'error');
       return;
     }
 
@@ -139,10 +146,25 @@ const UsingItem = ({ user }) => {
     }
 
     try {
+      // 대상 사용자 확인
+      const targetUser = users.find(u => u.id === targetUserId);
+      if (!targetUser) {
+        showMessage('대상 사용자를 찾을 수 없습니다.', 'error');
+        return;
+      }
+
+      // 대상 사용자의 해당 아이템 보유량 확인 (Firebase에서 직접 조회)
+      const currentItemCount = await getUserItemQuantity(targetUserId, selectedItem);
+      
+      // 아이템 보유 한도 확인 (10개 제한)
+      if (currentItemCount >= 10) {
+        showMessage(`${targetUser.displayName}님이 이미 ${itemData.itemName}을(를) 10개 보유하고 있어 양도할 수 없습니다.`, 'error');
+        return;
+      }
+
       // InventoryContext의 transferItem 사용 (Firebase 트랜잭션 포함)
       await transferItem(selectedItem, targetUserId);
 
-      const targetUser = users.find(u => u.id === targetUserId);
       showMessage(`${itemData.itemName}을(를) ${targetUser?.displayName || '사용자'}에게 양도했습니다.`, 'success');
       setSelectedItem('');
       setTargetUserId('');
@@ -175,6 +197,9 @@ const UsingItem = ({ user }) => {
     );
   }
 
+  const currentUser = getBattleUserById(user.uid);
+  const isEliminated = currentUser?.isEliminated;
+
   return (
     <div className="space-y-6">
       {/* 메시지 알림 */}
@@ -202,8 +227,11 @@ const UsingItem = ({ user }) => {
                     checked={actionType === 'use'}
                     onChange={(e) => setActionType(e.target.value)}
                     className="mr-2"
+                    disabled={isEliminated}
                   />
-                  아이템 사용
+                  <span className={isEliminated ? 'text-gray-400' : ''}>
+                    아이템 사용 {isEliminated && '(탈락자 사용 불가)'}
+                  </span>
                 </label>
                 <label className="flex items-center">
                   <input
@@ -227,7 +255,7 @@ const UsingItem = ({ user }) => {
                 value={selectedItem}
                 onChange={(e) => setSelectedItem(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={actionType === 'use' && isOnCooldown}
+                disabled={actionType === 'use' && (isOnCooldown || isEliminated)}
               >
                 <option value="">아이템을 선택하세요</option>
                 {inventory.map((item) => (
@@ -255,7 +283,7 @@ const UsingItem = ({ user }) => {
                 value={targetUserId}
                 onChange={(e) => setTargetUserId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={actionType === 'use' && isOnCooldown}
+                disabled={actionType === 'use' && (isOnCooldown || isEliminated)}
               >
                 <option value="">사용자를 선택하세요</option>
                 {(actionType === 'use' ? getActiveBattleUsers() : users)
@@ -287,14 +315,19 @@ const UsingItem = ({ user }) => {
               {actionType === 'use' ? (
                 <button 
                   onClick={handleUseItem}
-                  disabled={!selectedItem || !targetUserId || isOnCooldown}
+                  disabled={!selectedItem || !targetUserId || isOnCooldown || isEliminated}
                   className={`w-full px-4 py-2 rounded-md transition-colors ${
-                    isOnCooldown 
+                    isOnCooldown || isEliminated
                       ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
                       : 'bg-red-500 text-white hover:bg-red-600'
-                  } ${(!selectedItem || !targetUserId) && !isOnCooldown ? 'bg-gray-400 cursor-not-allowed' : ''}`}
+                  } ${(!selectedItem || !targetUserId) && !isOnCooldown && !isEliminated ? 'bg-gray-400 cursor-not-allowed' : ''}`}
                 >
-                  {isOnCooldown ? `아이템 사용 (${cooldownTime}초 대기)` : '아이템 사용'}
+                  {isEliminated 
+                    ? '탈락자는 아이템 사용 불가' 
+                    : isOnCooldown 
+                    ? `아이템 사용 (${cooldownTime}초 대기)` 
+                    : '아이템 사용'
+                  }
                 </button>
               ) : (
                 <button 

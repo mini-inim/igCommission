@@ -252,6 +252,19 @@ export const InventoryProvider = ({ children }) => {
     return inventory.filter(item => item.itemName === itemName);
   };
 
+  const getUserItemQuantity = async (userId, itemId) => {
+  try {
+    const itemRef = doc(db, 'users', userId, 'inventory', itemId);
+    const itemDoc = await getDocs(collection(db, 'users', userId, 'inventory'));
+    
+    const userItem = itemDoc.docs.find(doc => doc.id === itemId);
+    return userItem ? (userItem.data().quantity || 0) : 0;
+  } catch (error) {
+    console.error('사용자 아이템 수량 확인 실패:', error);
+    return 0;
+  }
+};
+
   const value = {
     inventory,
     loading,
@@ -262,6 +275,7 @@ export const InventoryProvider = ({ children }) => {
     getItemById,
     getItemsByName,
     refreshInventory,
+    getUserItemQuantity
   };
 
   return (
