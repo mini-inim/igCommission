@@ -147,7 +147,6 @@ const Navigation = ({ user }) => {
         <div className="flex items-center justify-between">
           {/* 로고 + 데스크톱 네비게이션 */}
           <div className="flex items-center space-x-8">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">밀고톡</h1>
             
             {/* 데스크톱 네비게이션 */}
             <div className="hidden md:flex items-center space-x-6">
