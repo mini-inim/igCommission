@@ -128,52 +128,53 @@ const UsingItem = ({ user }) => {
     }
   };
 
-  const handleTransferItem = async () => {
-    if (!selectedItem || !targetUserId) {
-      showMessage('아이템과 대상을 모두 선택해주세요.', 'error');
+const handleTransferItem = async () => {
+  if (!selectedItem || !targetUserId) {
+    showMessage('아이템과 대상을 모두 선택해주세요.', 'error');
+    return;
+  }
+
+  if (targetUserId === user.uid) {
+    showMessage('자신에게는 양도할 수 없습니다.', 'error');
+    return;
+  }
+
+  const itemData = getSelectedItemData();
+  if (!itemData) {
+    showMessage('선택한 아이템을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    // 대상 사용자 확인
+    const targetUser = users.find(u => u.id === targetUserId);
+    if (!targetUser) {
+      showMessage('대상 사용자를 찾을 수 없습니다.', 'error');
       return;
     }
 
-    if (targetUserId === user.uid) {
-      showMessage('자신에게는 양도할 수 없습니다.', 'error');
-      return;
-    }
-
-    const itemData = getSelectedItemData();
-    if (!itemData) {
-      showMessage('선택한 아이템을 찾을 수 없습니다.', 'error');
-      return;
-    }
-
-    try {
-      // 대상 사용자 확인
-      const targetUser = users.find(u => u.id === targetUserId);
-      if (!targetUser) {
-        showMessage('대상 사용자를 찾을 수 없습니다.', 'error');
-        return;
-      }
-
-      // 대상 사용자의 해당 아이템 보유량 확인 (Firebase에서 직접 조회)
+    // 방어권만 10개 제한 확인
+    if (itemData.itemName === '방어권') {
       const currentItemCount = await getUserItemQuantity(targetUserId, selectedItem);
       
-      // 아이템 보유 한도 확인 (10개 제한)
       if (currentItemCount >= 10) {
-        showMessage(`${targetUser.displayName}님이 이미 ${itemData.itemName}을(를) 10개 보유하고 있어 양도할 수 없습니다.`, 'error');
+        showMessage(`${targetUser.displayName}님이 이미 방어권을 10개 보유하고 있어 양도할 수 없습니다.`, 'error');
         return;
       }
-
-      // InventoryContext의 transferItem 사용 (Firebase 트랜잭션 포함)
-      await transferItem(selectedItem, targetUserId);
-
-      showMessage(`${itemData.itemName}을(를) ${targetUser?.displayName || '사용자'}에게 양도했습니다.`, 'success');
-      setSelectedItem('');
-      setTargetUserId('');
-      
-    } catch (error) {
-      console.error('아이템 양도 실패:', error);
-      showMessage(error.message || '아이템 양도 중 오류가 발생했습니다.', 'error');
     }
-  };
+
+    // InventoryContext의 transferItem 사용 (Firebase 트랜잭션 포함)
+    await transferItem(selectedItem, targetUserId);
+
+    showMessage(`${itemData.itemName}을(를) ${targetUser?.displayName || '사용자'}에게 양도했습니다.`, 'success');
+    setSelectedItem('');
+    setTargetUserId('');
+    
+  } catch (error) {
+    console.error('아이템 양도 실패:', error);
+    showMessage(error.message || '아이템 양도 중 오류가 발생했습니다.', 'error');
+  }
+};
 
   const getMessageStyle = (type) => {
     const baseStyle = "fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300";
